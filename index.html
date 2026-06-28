@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Маржа и направления</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF1F5; --surface:#FFFFFF; --surface-2:#F7F9FC;
+    --ink:#15202E; --muted:#64748B; --line:#E2E8F1;
+    --accent:#1B4DB1; --accent-soft:#E8EEFB;
+    --pos:#0E8A56; --pos-soft:#E3F4EC;
+    --neg:#C7384A; --neg-soft:#FBEAEC;
+    --warn:#B45309;
+    --mono:"SFMono-Regular",ui-monospace,"Menlo","Consolas",monospace;
+    --sans:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--bg);
+    font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1680px; margin:0 auto; padding:22px 20px 60px}
+
+  /* Header */
+  header{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px}
+  .brand h1{font-size:21px; font-weight:700; letter-spacing:-.02em; display:flex; align-items:center; gap:10px}
+  .brand h1 .dot{width:10px; height:10px; border-radius:2px; background:var(--accent); transform:rotate(45deg)}
+  .brand p{color:var(--muted); font-size:13px; margin-top:3px}
+  .head-actions{display:flex; gap:8px}
+
+  button{font-family:var(--sans); cursor:pointer; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink); padding:8px 13px; border-radius:8px; font-size:13px; font-weight:500; transition:.12s}
+  button:hover{border-color:#C7D2E0; background:var(--surface-2)}
+  button.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+  button.primary:hover{background:#174196}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  /* Dropzone */
+  .drop{border:2px dashed #C2CEDD; border-radius:14px; background:var(--surface);
+    padding:54px 24px; text-align:center; transition:.15s}
+  .drop.over{border-color:var(--accent); background:var(--accent-soft)}
+  .drop .big{font-size:17px; font-weight:600; margin-bottom:6px}
+  .drop .sub{color:var(--muted); margin-bottom:18px}
+  .drop .or{color:var(--muted); font-size:12px; margin-top:14px}
+
+  /* Panels */
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-bottom:14px}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; padding:11px 15px; cursor:pointer; user-select:none}
+  .panel-head h2{font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+  .panel-body{padding:4px 15px 15px}
+  .chev{color:var(--muted); transition:.15s; font-size:12px}
+  .panel.closed .panel-body{display:none}
+  .panel.closed .chev{transform:rotate(-90deg)}
+
+  /* Mapping grid */
+  .map-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
+  .field label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.04em}
+  select,input[type=text]{width:100%; font-family:var(--sans); font-size:13px; padding:8px 9px;
+    border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink)}
+  select:focus,input:focus{outline:none; border-color:var(--accent); background:#fff}
+
+  /* Controls bar */
+  .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+  .controls .field{flex:0 0 auto}
+  .controls .search{flex:1 1 220px; min-width:180px}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surface)}
+  .seg button{border:none; border-radius:0; border-right:1px solid var(--line); background:transparent; padding:8px 14px}
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--accent); color:#fff}
+  .seg button.on:hover{background:#174196}
+
+  /* Stats */
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px}
+  .stat{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 15px}
+  .stat .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:600}
+  .stat .v{font-size:20px; font-weight:700; font-family:var(--mono); margin-top:5px; letter-spacing:-.01em}
+  .stat .v small{font-size:12px; color:var(--muted); font-weight:500; font-family:var(--sans)}
+
+  /* Table */
+  .tablewrap{background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .tbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 14px; border-bottom:1px solid var(--line)}
+  .tbar .hint{font-size:12px; color:var(--muted)}
+  .mini{padding:5px 10px; font-size:12px; border-radius:7px}
+  .scroll{overflow-x:auto}
+  table{table-layout:fixed; border-collapse:collapse; font-size:13px}
+  th,td{padding:10px 14px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  thead th{background:var(--surface-2); font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--muted); font-weight:600; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; position:sticky; top:0}
+  thead th:hover{color:var(--ink)}
+  thead th .ar{opacity:.4; font-size:10px; margin-left:3px}
+  thead th.sorted .ar{opacity:1; color:var(--accent)}
+  thead th.num{text-align:right}
+  .resizer{position:absolute; top:0; right:0; width:8px; height:100%; cursor:col-resize; z-index:2}
+  .resizer:hover,.resizer.active{background:var(--accent)}
+  tbody tr{border-bottom:1px solid var(--line)}
+  tbody tr:last-child{border-bottom:none}
+  tbody tr:hover{background:var(--surface-2)}
+  td.num{font-family:var(--mono); text-align:right; letter-spacing:-.01em}
+  .route{font-weight:600}
+  .route .arr{color:var(--muted); margin:0 5px; font-weight:400}
+  .tag{display:inline-block; max-width:230px; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom}
+
+  /* margin cell + bar (signature element) */
+  .mcell{display:flex; align-items:center; justify-content:flex-end; gap:10px; min-width:0}
+  .mbar{flex:1; height:7px; border-radius:4px; background:#EDF1F6; position:relative; overflow:hidden; max-width:90px}
+  .mbar span{position:absolute; top:0; bottom:0; left:0; border-radius:4px}
+  .mval{font-family:var(--mono); min-width:74px; text-align:right; font-weight:600}
+  .pos{color:var(--pos)} .neg{color:var(--neg)}
+  .pct{font-family:var(--mono); color:var(--muted); font-size:12px}
+
+  .empty{padding:46px; text-align:center; color:var(--muted)}
+  .count{color:var(--muted); font-size:12px; padding:10px 15px; border-top:1px solid var(--line)}
+  footer{margin-top:18px; color:var(--muted); font-size:12px; text-align:center}
+  .hidden{display:none}
+  .pill{font-size:11px; background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:20px; font-weight:600}
+  .c-date{text-align:left; color:var(--muted)}
+
+  /* Tabs */
+  .tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:16px}
+  .tabs button{border:none; background:transparent; padding:10px 18px; font-size:14px; font-weight:600;
+    color:var(--muted); border-bottom:2px solid transparent; border-radius:0; margin-bottom:-1px}
+  .tabs button:hover{color:var(--ink); background:transparent; border-color:transparent}
+  .tabs button.on{color:var(--accent); border-bottom-color:var(--accent)}
+
+  /* Analytics */
+  .agrid{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  .apanel{padding:0; overflow:hidden}
+  .aphead{display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:13px 16px; border-bottom:1px solid var(--line); font-weight:700; font-size:14px}
+  .apsub{color:var(--muted); font-weight:500; font-size:12px}
+  .alist{padding:6px 6px 10px}
+  .rrow{display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:7px}
+  .rrow:hover{background:var(--surface-2)}
+  .rnum{width:18px; text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; flex:0 0 auto}
+  .rname{flex:0 0 33%; max-width:33%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:500}
+  .rbar{flex:1; height:8px; background:#EDF1F6; border-radius:5px; overflow:hidden; min-width:24px}
+  .rbar i{display:block; height:100%; background:var(--accent); border-radius:5px}
+  .rval{flex:0 0 auto; font-family:var(--mono); font-size:12px; text-align:right; white-space:nowrap}
+  .rval small{color:var(--muted)} .rval b{font-weight:600}
+  .seg.small button{padding:4px 9px; font-size:11px}
+  .atable{width:100%; border-collapse:collapse; font-size:13px}
+  .atable th{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+    text-align:left; font-weight:600; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+  .atable th.num{text-align:right}
+  .atable td{padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+  .atable td.num{font-family:var(--mono); text-align:right}
+  .atable tr:last-child td{border-bottom:none}
+  .atable tbody tr:hover{background:var(--surface-2)}
+  .rnum2{color:var(--muted); font-family:var(--mono); width:26px; text-align:center}
+  .cpbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:11px 15px; margin-bottom:14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px}
+  .cpbar label{font-size:13px; font-weight:600}
+  .cpbar .hint{font-size:12px; color:var(--muted)}
+  .filerow{display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line);
+    border-radius:9px; margin-bottom:7px; background:var(--surface-2)}
+  .filerow:last-child{margin-bottom:0}
+  .fico{font-size:10px; font-weight:700; color:#fff; background:var(--accent); padding:3px 6px; border-radius:5px; flex:0 0 auto}
+  .fname{flex:1; font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .fmeta{font-size:12px; color:var(--muted); font-family:var(--mono); flex:0 0 auto}
+  .fdel{border:none; background:transparent; color:var(--muted); font-size:20px; line-height:1; padding:0 8px; border-radius:6px; flex:0 0 auto}
+  .fdel:hover{background:var(--neg-soft); color:var(--neg)}
+  .fempty{color:var(--muted); font-size:13px; padding:8px 4px}
+
+  /* ---------- Mobile ---------- */
+  @media (max-width:680px){
+    .wrap{padding:14px 12px 44px}
+    header{flex-direction:column; align-items:stretch; gap:12px}
+    .head-actions{width:100%}
+    .head-actions button{flex:1}
+    .brand h1{font-size:19px}
+
+    .controls{flex-direction:column; align-items:stretch; gap:10px}
+    .controls .field,.controls .search{flex:1 1 auto; width:100%; min-width:0}
+    .seg{width:100%}
+    .seg button{flex:1; padding:9px 6px; text-align:center}
+    #entity,#statusFilter{width:100%}
+    #dateFrom,#dateTo{flex:1; width:auto}
+
+    .stats{grid-template-columns:1fr 1fr; gap:8px}
+    .stat{padding:11px 12px}
+    .stat .v{font-size:17px}
+
+    /* analytics */
+    .agrid{grid-template-columns:1fr}
+    .rname{flex-basis:40%; max-width:40%}
+    .tabs button{flex:1; padding:10px 8px}
+
+    /* table -> cards */
+    .tbar{display:none}
+    .resizer{display:none}
+    .tablewrap{border:none; background:transparent; border-radius:0}
+    .scroll{overflow:visible}
+    table,tbody{display:block; width:auto!important; table-layout:auto!important}
+    thead{display:none}
+    tbody tr{display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line);
+      border-radius:11px; margin-bottom:10px; padding:6px 14px 10px}
+    tbody tr:hover{background:var(--surface)}
+    td{display:flex; align-items:center; justify-content:space-between; gap:14px; width:auto!important;
+      padding:7px 0; white-space:normal; text-align:right; border:none; overflow:visible; text-overflow:clip}
+    td::before{content:attr(data-label); color:var(--muted); font-size:11px; font-weight:600;
+      text-transform:uppercase; letter-spacing:.04em; text-align:left; flex:0 0 auto}
+    td.num{text-align:right; justify-content:space-between}
+    /* route as card title */
+    td.route{order:-1; border-bottom:1px solid var(--line); margin:0 -14px 4px; padding:4px 14px 9px;
+      font-size:15px; justify-content:flex-start; gap:6px}
+    td.route::before{display:none}
+    td.c-date{color:var(--muted); font-weight:500}
+    .mcell{min-width:0; justify-content:flex-end; flex:0 1 auto}
+    .mbar{max-width:60px}
+    .mval{min-width:0}
+    .tag{max-width:62vw}
+    .count{padding:6px 4px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1><span class="dot"></span>Маржа и направления</h1>
+      <p>База ставок заказчиков и перевозчиков — поиск, маржинальность, сортировка</p>
+    </div>
+    <div class="head-actions">
+      <button id="btnSample">Демо-данные</button>
+      <button class="primary" id="btnLoad">+ Добавить Excel</button>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple class="hidden">
+    </div>
+  </header>
+
+  <!-- Dropzone -->
+  <div id="drop" class="drop">
+    <div class="big">Перетащите сюда файлы .xlsx</div>
+    <div class="sub">или нажмите «Добавить Excel». Можно выбрать сразу несколько. Данные остаются у вас в браузере — никуда не отправляются.</div>
+    <button class="primary" id="btnLoad2">Выбрать файлы</button>
+    <div class="or">Нет файла под рукой? Откройте <a href="#" id="lnkSample">демо-данные</a>, чтобы посмотреть как работает.</div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="hidden">
+
+    <!-- Files -->
+    <div class="panel" id="filesPanel">
+      <div class="panel-head" style="cursor:default">
+        <h2>Файлы <span class="pill" id="filesCount">0</span> <span id="filesTotal" style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0"></span></h2>
+        <button class="mini" id="addFileBtn">+ Добавить файл</button>
+      </div>
+      <div class="panel-body">
+        <div id="fileList"></div>
+      </div>
+    </div>
+
+    <!-- Mapping -->
+    <div class="panel closed" id="mapPanel">
+      <div class="panel-head" data-toggle>
+        <h2>Колонки таблицы <span class="pill" id="mapStatus">сопоставлено</span></h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="map-grid">
+          <div class="field"><label>Заказчик</label><select data-role="customer"></select></div>
+          <div class="field"><label>Перевозчик</label><select data-role="carrier"></select></div>
+          <div class="field"><label>Направление</label><select data-role="route"></select></div>
+          <div class="field"><label>Откуда</label><select data-role="from"></select></div>
+          <div class="field"><label>Куда</label><select data-role="to"></select></div>
+          <div class="field"><label>Цена заказчику</label><select data-role="priceC"></select></div>
+          <div class="field"><label>Цена перевозчику</label><select data-role="priceP"></select></div>
+          <div class="field"><label>Статус</label><select data-role="status"></select></div>
+          <div class="field"><label>Дата</label><select data-role="date"></select></div>
+          <div class="field"><label>Форма оплаты заказчика</label><select data-role="payFormC"></select></div>
+          <div class="field"><label>Форма оплаты поставщику</label><select data-role="payFormP"></select></div>
+        </div>
+        <p style="color:var(--muted);font-size:12px;margin-top:12px">
+          «Направление» можно задать одной колонкой, либо парой «Откуда»/«Куда». Маржа считается, когда заданы обе цены.
+        </p>
+      </div>
+    </div>
+
+    <!-- Calculation params -->
+    <div class="panel closed" id="calcPanel">
+      <div class="panel-head" data-toggle-calc>
+        <h2>Параметры расчёта <span class="pill" id="calcStatus">НП 25% · менеджер 10%</span></h2>
+        <span class="chev">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="map-grid">
+          <div class="field"><label>Налог на прибыль, %</label><input type="number" id="pNP" value="25" min="0" step="1"></div>
+          <div class="field"><label>Зарплата менеджера, % от гросс-маржи</label><input type="number" id="pMGR" value="10" min="0" step="1"></div>
+          <div class="field"><label>Доп. расходы на рейс, ₽</label><input type="number" id="pEXTRA" value="0" min="0" step="100"></div>
+          <div class="field"><label>Ставка НДС по умолчанию, %</label><input type="number" id="pVAT" value="22" min="0" step="1"></div>
+        </div>
+        <p style="color:var(--muted);font-size:12px;margin-top:12px">
+          Модель режима «Чистая»: Гросс − НДС(к уплате) − Налог на прибыль − Зарплата менеджера − Доп. расходы.
+          НДС считается асимметрично: с продажи минус вычет с закупки. «Ставка НДС по умолчанию» применяется к формам «в т.ч. НДС» без явного процента.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabbar">
+      <button data-tab="table" class="on">Ставки</button>
+      <button data-tab="analytics">Аналитика</button>
+      <button data-tab="cp">Контрагенты</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="field table-only">
+        <label>Группировка</label>
+        <div class="seg" id="mode">
+          <button data-mode="all" class="on">Все ставки</button>
+          <button data-mode="customer">По заказчику</button>
+          <button data-mode="carrier">По перевозчику</button>
+        </div>
+      </div>
+      <div class="field" id="entityWrap" style="display:none">
+        <label id="entityLabel">Заказчик</label>
+        <select id="entity" style="min-width:200px"></select>
+      </div>
+      <div class="field" id="statusWrap" style="display:none">
+        <label>Статус</label>
+        <select id="statusFilter"></select>
+      </div>
+      <div class="field">
+        <label>Маржа</label>
+        <div class="seg" id="marginMode">
+          <button data-mm="gross" class="on">Гросс</button>
+          <button data-mm="vat">После НДС</button>
+          <button data-mm="net">Чистая</button>
+        </div>
+      </div>
+      <div class="field" id="formCFilterWrap" style="display:none">
+        <label>Оплата заказчика</label>
+        <select id="formCFilter" style="max-width:230px"></select>
+      </div>
+      <div class="field" id="formPFilterWrap" style="display:none">
+        <label>Оплата поставщику</label>
+        <select id="formPFilter" style="max-width:230px"></select>
+      </div>
+      <div class="field search">
+        <label>Поиск</label>
+        <input type="text" id="search" placeholder="заказчик, перевозчик, город…">
+      </div>
+      <div class="field" id="periodWrap" style="display:none">
+        <label>Период</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="date" id="dateFrom" style="width:auto">
+          <span style="color:var(--muted)">–</span>
+          <input type="date" id="dateTo" style="width:auto">
+        </div>
+      </div>
+      <div class="field table-only">
+        <label>Сортировка</label>
+        <select id="sort">
+          <option value="date-desc">Дата ↓ (сначала новые)</option>
+          <option value="date-asc">Дата ↑ (сначала старые)</option>
+          <option value="margin-desc">Маржа ↓</option>
+          <option value="margin-asc">Маржа ↑</option>
+          <option value="marginpct-desc">Маржа % ↓</option>
+          <option value="vatdue-desc">НДС к уплате ↓</option>
+          <option value="priceC-desc">Цена заказчику ↓</option>
+          <option value="priceC-asc">Цена заказчику ↑</option>
+          <option value="route-asc">Направление А→Я</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats" id="stats"></div>
+
+    <!-- Table view -->
+    <div id="tableView">
+      <div class="tablewrap">
+        <div class="tbar">
+          <span class="hint">↔ Тяните границу заголовка, чтобы изменить ширину колонки</span>
+          <button class="mini" id="resetW">Сбросить ширину</button>
+        </div>
+        <div class="scroll"><table id="table"></table></div>
+        <div class="count" id="count"></div>
+      </div>
+    </div>
+
+    <!-- Analytics view -->
+    <div id="analyticsView" style="display:none"></div>
+
+    <!-- Counterparties view -->
+    <div id="cpView" style="display:none"></div>
+  </div>
+
+  <footer>Файл работает локально в браузере. Можно скачать и открывать офлайн (нужен интернет один раз — для модуля чтения Excel).</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let HEADERS=[], ROWS=[], MAP={}, sortKey='margin', sortDir='desc';
+
+/* ---------- helpers ---------- */
+const num=v=>{
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return v;
+  const n=parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\s/g,'').replace(',','.'));
+  return isNaN(n)?null:n;
+};
+const fmt=n=> n==null?'—':n.toLocaleString('ru-RU',{maximumFractionDigits:0});
+function parseDate(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date) return v.getTime();
+  if(typeof v==='number') return (v-25569)*86400000; // Excel serial -> ms
+  const s=String(v).trim();
+  const m=s.match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if(m){let[,d,mo,y,h,mi]=m; y=+y; if(y<100)y+=2000;
+    return new Date(y,mo-1,+d,h?+h:0,mi?+mi:0).getTime();}
+  const t=Date.parse(s); return isNaN(t)?null:t;
+}
+const fmtDate=ms=>{if(ms==null)return '—';const d=new Date(ms),p=n=>String(n).padStart(2,'0');
+  return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}`;};
+let STD_VAT=22, NP=25, MGR=10, EXTRA=0; // параметры расчёта (редактируются в панели)
+function vatRate(form){
+  if(form==null||form==='') return 0;
+  const s=String(form).toLowerCase();
+  if(s.includes('не облага')) return 0;     // «НДС не облагается»
+  if(/без\s+ндс/.test(s)) return 0;          // «Без НДС»
+  const m=s.match(/ндс\s*(\d{1,2})\s*%/)||s.match(/(\d{1,2})\s*%/);
+  if(m) return +m[1];
+  if(s.includes('ндс')) return STD_VAT;      // «в т.ч. НДС» без явного числа
+  return 0;
+}
+const guess=(headers,keys,neg=[])=>{ // shortest header that contains a keyword and no excluded word
+  let best='',len=Infinity;
+  for(const h of headers){const l=String(h).toLowerCase();
+    if(neg.some(n=>l.includes(n))) continue;
+    if(keys.some(k=>l.includes(k))&&l.length<len){best=h;len=l.length;}}
+  return best;
+};
+const cleanCity=s=>String(s).split('(')[0].split(',')[0].trim();
+function cleanRoute(t){
+  const raw=String(t||'').trim();
+  const parts=raw.split(/\s+-\s+/);
+  if(parts.length<2||!raw) return {disp:esc(raw||'—'),title:raw};
+  const a=cleanCity(parts[0]), b=cleanCity(parts[parts.length-1]);
+  const via=parts.length>2?`<span class="arr" title="промежуточных точек: ${parts.length-2}">·${parts.length-2}</span>`:'';
+  return {disp:`${esc(a)}<span class="arr">→</span>${esc(b)} ${via}`, title:raw};
+}
+
+/* ---------- files & data ---------- */
+let FILES=[], fileSeq=0, userMapped=false;
+const STORE_KEY='marzha_files_v1';
+
+function autoMap(){
+  const NEG=['ставка','цена','долг','№','оплат','адрес','дата']; // exclude id/price/debt cols from name roles
+  MAP={
+    customer:guess(HEADERS,['заказчик','клиент','customer','client'],NEG),
+    carrier :guess(HEADERS,['перевозчик','carrier','исполнит'],NEG),
+    route   :guess(HEADERS,['маршрут','направлени','route','плечо']),
+    from    :guess(HEADERS,['откуда','from','погруз']),
+    to      :guess(HEADERS,['куда','to','разгруз']),
+    priceC  :guess(HEADERS,['ставка заказ','цена заказ','прода','для клиен','выручк','доход']),
+    priceP  :guess(HEADERS,['ставка перево','цена перево','закуп','себест','для перево','расход']),
+    status  :guess(HEADERS,['статус','status']),
+    date    :guess(HEADERS,['дата','date'],['оплат','план']),
+    payFormC:guess(HEADERS,['форма оплаты заказ','форма оплаты клиен']),
+    payFormP:guess(HEADERS,['форма оплаты постав','форма оплаты перево','форма оплаты исполн']),
+  };
+  if(!MAP.priceC){MAP.priceC=guess(HEADERS,['цена','ставка','price','сумма','тариф'],['перево','долг']);}
+}
+
+function rebuildData(){
+  ROWS=[].concat(...FILES.map(f=>f.rows));
+  renderFiles();
+  if(!ROWS.length){
+    userMapped=false;
+    $('#app').classList.add('hidden'); $('#drop').classList.remove('hidden');
+    return;
+  }
+  const hset=new Set(); FILES.forEach(f=>f.rows[0]&&Object.keys(f.rows[0]).forEach(h=>hset.add(h)));
+  HEADERS=[...hset];
+  if(!userMapped) autoMap();
+  buildMapping();
+  ['statusFilter','formCFilter','formPFilter'].forEach(id=>{const e=$('#'+id); if(e){e.dataset.built=''; e.value='';}});
+  userResized=false;
+  $('#drop').classList.add('hidden'); $('#app').classList.remove('hidden');
+  render();
+}
+
+function addFile(name, rows){
+  if(!rows||!rows.length){alert('В файле «'+name+'» не нашлось строк с данными.');return;}
+  FILES.push({id:++fileSeq, name, rows});
+  rebuildData(); saveStore();
+}
+function removeFile(id){
+  FILES=FILES.filter(f=>f.id!==id);
+  rebuildData(); saveStore();
+}
+function renderFiles(){
+  const el=$('#fileList'); if(!el) return;
+  $('#filesCount').textContent=FILES.length;
+  const total=FILES.reduce((s,f)=>s+f.rows.length,0);
+  $('#filesTotal').textContent = FILES.length? `· ${total} ${plural(total,'строка','строки','строк')} всего`:'';
+  el.innerHTML = FILES.length ? FILES.map(f=>`
+    <div class="filerow">
+      <span class="fico">XLS</span>
+      <span class="fname" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="fmeta">${f.rows.length} ${plural(f.rows.length,'строка','строки','строк')}</span>
+      <button class="fdel" data-id="${f.id}" title="Удалить файл">×</button>
+    </div>`).join('') : '<div class="fempty">Файлы не добавлены</div>';
+  $$('.fdel').forEach(b=>b.onclick=()=>removeFile(+b.dataset.id));
+}
+
+/* persistence — работает на хостинге; внутри предпросмотра Claude тихо пропускается */
+function saveStore(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(FILES.map(f=>({name:f.name,rows:f.rows})))); }
+  catch(e){ /* квота или песочница — игнорируем */ }
+}
+function loadStore(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY); if(!raw) return;
+    const arr=JSON.parse(raw); if(!Array.isArray(arr)||!arr.length) return;
+    FILES=arr.map(f=>({id:++fileSeq, name:f.name, rows:f.rows}));
+    rebuildData();
+  }catch(e){ /* ignore */ }
+}
+
+function readFiles(fileList){
+  [...fileList].forEach(f=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        addFile(f.name, XLSX.utils.sheet_to_json(ws,{defval:''}));
+      }catch(err){alert('Не удалось прочитать «'+f.name+'»: '+err.message);}
+    };
+    r.readAsArrayBuffer(f);
+  });
+}
+
+/* ---------- demo ---------- */
+function demo(){
+  const d=[
+    ['ООО Ритейл-Юг','ИП Иванов','Москва','Краснодар',185000,142000],
+    ['ООО Ритейл-Юг','АвтоПарк-7','Москва','Ростов-на-Дону',165000,121000],
+    ['ООО Ритейл-Юг','РейсТранс','Москва','Сочи',210000,178000],
+    ['ТД Северный','ИП Иванов','Санкт-Петербург','Москва',98000,74000],
+    ['ТД Северный','ГрузЛайн','Санкт-Петербург','Екатеринбург',240000,205000],
+    ['ТД Северный','АвтоПарк-7','Санкт-Петербург','Казань',176000,138000],
+    ['Маркет-Опт','РейсТранс','Екатеринбург','Москва',230000,176000],
+    ['Маркет-Опт','ГрузЛайн','Екатеринбург','Новосибирск',158000,134000],
+    ['Маркет-Опт','ИП Сидоров','Челябинск','Москва',245000,179000],
+    ['ПродСеть','АвтоПарк-7','Москва','Воронеж',92000,71000],
+    ['ПродСеть','ИП Сидоров','Москва','Самара',134000,103000],
+    ['ПродСеть','РейсТранс','Москва','Нижний Новгород',78000,69000],
+    ['ХолодЛогистик','ГрузЛайн','Краснодар','Москва',195000,151000],
+    ['ХолодЛогистик','ИП Иванов','Ростов-на-Дону','Санкт-Петербург',218000,167000],
+  ];
+  addFile('Демо-данные', d.map(r=>({Заказчик:r[0],Перевозчик:r[1],Откуда:r[2],Куда:r[3],'Цена заказчику':r[4],'Цена перевозчику':r[5]})));
+}
+
+/* ---------- mapping UI ---------- */
+function buildMapping(){
+  $$('#mapPanel select').forEach(sel=>{
+    const role=sel.dataset.role;
+    sel.innerHTML='<option value="">— нет —</option>'+HEADERS.map(h=>`<option ${MAP[role]===h?'selected':''}>${h}</option>`).join('');
+    sel.onchange=()=>{MAP[role]=sel.value; userMapped=true; render();};
+  });
+}
+
+/* ---------- derive a normalized record ---------- */
+function record(r){
+  const routeText = MAP.route&&r[MAP.route] ? r[MAP.route]
+    : (MAP.from||MAP.to) ? `${r[MAP.from]||'?'} → ${r[MAP.to]||'?'}` : '—';
+  const pc=num(r[MAP.priceC]), pp=num(r[MAP.priceP]);
+  const grossMargin = (pc!=null&&pp!=null) ? pc-pp : null;
+  const grossPct = (grossMargin!=null&&pc) ? grossMargin/pc*100 : null;
+  const formC=r[MAP.payFormC]||'', formP=r[MAP.payFormP]||'';
+  const vatC=vatRate(formC), vatP=vatRate(formP);
+  let vatDue=null, afterVat=null, afterVatPct=null, incomeTax=null,
+      netMargin=null, managerPay=null, netProfit=null, netPct=null;
+  if(pc!=null&&pp!=null){
+    const outV=pc*vatC/(100+vatC), inV=pp*vatP/(100+vatP); // НДС внутри цен
+    vatDue=outV-inV;                            // НДС к уплате (asymmetric)
+    afterVat=grossMargin-vatDue;                // прибыль после НДС
+    incomeTax=afterVat>0?afterVat*NP/100:0;     // налог на прибыль
+    netMargin=afterVat-incomeTax;               // NET маржа
+    managerPay=grossMargin>0?grossMargin*MGR/100:0;
+    netProfit=netMargin-managerPay-EXTRA;       // чистая прибыль
+    const netRev=pc-outV;                       // выручка без НДС
+    afterVatPct=netRev?afterVat/netRev*100:null;
+    netPct=netRev?netProfit/netRev*100:null;
+  }
+  return {
+    customer:r[MAP.customer]||'—', carrier:r[MAP.carrier]||'—',
+    route:routeText, priceC:pc, priceP:pp, vatC, vatP, formC, formP,
+    grossMargin, grossPct, vatDue, afterVat, afterVatPct,
+    incomeTax, netMargin, managerPay, netProfit, netPct,
+    margin:grossMargin, pct:grossPct, // активные значения (по режиму)
+    status:r[MAP.status]||'', date:parseDate(r[MAP.date])
+  };
+}
+
+/* ---------- render ---------- */
+let activeTab='table', routeSortMode='count';
+function render(){
+  const q=$('#search').value.trim().toLowerCase();
+  let recs=ROWS.map(record);
+
+  // margin mode: gross / after-VAT / net profit
+  const _mb=$('#marginMode .on'); const mm=_mb?_mb.dataset.mm:'gross';
+  recs.forEach(r=>{
+    if(mm==='vat'){ r.margin=r.afterVat; r.pct=r.afterVatPct; }
+    else if(mm==='net'){ r.margin=r.netProfit; r.pct=r.netPct; }
+    else { r.margin=r.grossMargin; r.pct=r.grossPct; }
+  });
+
+  // status filter (defaults to hiding cancelled deals so margins aren't skewed)
+  const statuses=[...new Set(recs.map(r=>r.status))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru'));
+  $('#statusWrap').style.display = statuses.length?'block':'none';
+  const sf=$('#statusFilter');
+  if(sf.dataset.built!=='1' && statuses.length){
+    sf.innerHTML='<option value="__active">Без отменённых</option><option value="">Все статусы</option>'
+      +statuses.map(s=>`<option>${esc(s)}</option>`).join('');
+    sf.dataset.built='1';
+  }
+  const sv=sf.value;
+  if(sv==='__active') recs=recs.filter(r=>!/отмен/i.test(r.status));
+  else if(sv) recs=recs.filter(r=>r.status===sv);
+
+  // payment-form filters
+  const buildForm=(sel,key)=>{
+    const el=$('#'+sel);
+    if(el.dataset.built!=='1'){
+      const opts=[...new Set(ROWS.map(r=>record(r)[key]))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru'));
+      $('#'+sel+'Wrap').style.display=opts.length?'block':'none';
+      if(opts.length){el.innerHTML='<option value="">Любая</option>'+opts.map(o=>`<option>${esc(o)}</option>`).join(''); el.dataset.built='1';}
+    }
+    return el.value;
+  };
+  const fcv=buildForm('formCFilter','formC'), fpv=buildForm('formPFilter','formP');
+  if(fcv) recs=recs.filter(r=>r.formC===fcv);
+  if(fpv) recs=recs.filter(r=>r.formP===fpv);
+
+  // search
+  if(q) recs=recs.filter(r=>(r.customer+' '+r.carrier+' '+r.route).toLowerCase().includes(q));
+
+  // period filter
+  const hasDates=recs.some(r=>r.date!=null);
+  $('#periodWrap').style.display=hasDates?'block':'none';
+  const dfv=$('#dateFrom').value, dtv=$('#dateTo').value;
+  if(dfv){const f=new Date(dfv+'T00:00:00').getTime(); recs=recs.filter(r=>r.date!=null&&r.date>=f);}
+  if(dtv){const t=new Date(dtv+'T23:59:59').getTime(); recs=recs.filter(r=>r.date!=null&&r.date<=t);}
+
+  const mapped=Object.values(MAP).filter(Boolean).length;
+  $('#mapStatus').textContent = mapped?`${mapped} ${plural(mapped,'колонка','колонки','колонок')}`:'не задано';
+
+  // ===== Analytics tab =====
+  if(activeTab==='analytics'){ drawStats(recs); drawAnalytics(recs); return; }
+  // ===== Counterparties tab =====
+  if(activeTab==='cp'){ drawStats(recs); drawCounterparty(recs); return; }
+
+  // ===== Table tab (group + sort are table-only) =====
+  const mode=$('#mode .on').dataset.mode;
+  $('#entityWrap').style.display = mode==='all'?'none':'block';
+  if(mode!=='all'){
+    const key=mode==='customer'?'customer':'carrier';
+    $('#entityLabel').textContent = mode==='customer'?'Заказчик':'Перевозчик';
+    const ents=[...new Set(recs.map(r=>r[key]))].filter(x=>x&&x!=='—').sort((a,b)=>a.localeCompare(b,'ru'));
+    const cur=$('#entity').value;
+    $('#entity').innerHTML='<option value="">Все</option>'+ents.map(e=>`<option ${cur===e?'selected':''}>${e}</option>`).join('');
+    const pick=$('#entity').value;
+    if(pick) recs=recs.filter(r=>r[key]===pick);
+  }
+
+  // sort
+  const [k,dir]=$('#sort').value.split('-');
+  recs.sort((a,b)=>{
+    let av,bv;
+    if(k==='route'){return (a.route||'').localeCompare(b.route||'','ru');}
+    if(k==='date'){av=a.date;bv=b.date;}
+    else if(k==='marginpct'){av=a.pct;bv=b.pct;}
+    else if(k==='priceC'){av=a.priceC;bv=b.priceC;}
+    else if(k==='vatdue'){av=a.vatDue;bv=b.vatDue;}
+    else {av=a.margin;bv=b.margin;}
+    av=av==null?-Infinity:av; bv=bv==null?-Infinity:bv;
+    return dir==='asc'?av-bv:bv-av;
+  });
+
+  drawStats(recs); drawTable(recs);
+  $('#count').textContent=`${recs.length} ${plural(recs.length,'строка','строки','строк')}`;
+}
+
+/* ---------- analytics ---------- */
+function aggregate(recs, keyFn){
+  const m=new Map();
+  recs.forEach(r=>{
+    const k=keyFn(r); if(!k||k==='—') return;
+    let o=m.get(k); if(!o){o={key:k,count:0,margin:0,rev:0}; m.set(k,o);}
+    o.count++;
+    if(r.priceC!=null) o.rev+=r.priceC;
+    if(r.margin!=null) o.margin+=r.margin;
+  });
+  return [...m.values()];
+}
+const routePlain=t=>{const p=String(t||'').split(/\s+-\s+/); return p.length<2?String(t||'—'):cleanCity(p[0])+' → '+cleanCity(p[p.length-1]);};
+function rankRows(items, valFn, nameFn, subFn){
+  const max=Math.max(1,...items.map(i=>Math.abs(valFn(i)||0)));
+  return items.map((it,i)=>`<div class="rrow">
+    <span class="rnum">${i+1}</span>
+    <span class="rname" title="${esc(nameFn(it))}">${esc(nameFn(it))}</span>
+    <span class="rbar"><i style="width:${Math.abs(valFn(it)||0)/max*100}%"></i></span>
+    <span class="rval">${subFn(it)}</span>
+  </div>`).join('');
+}
+function drawAnalytics(recs){
+  const view=$('#analyticsView');
+  if(!recs.length){ view.innerHTML='<div class="panel"><div class="empty" style="padding:42px">Нет данных по текущим фильтрам</div></div>'; return; }
+  const N=12;
+  const customers=aggregate(recs,r=>r.customer).sort((a,b)=>b.count-a.count);
+  const carriers =aggregate(recs,r=>r.carrier ).sort((a,b)=>b.count-a.count);
+  const routes   =aggregate(recs,r=>r.route);
+
+  const moneyTag=v=>`<b class="${v>=0?'pos':'neg'}">${(v>=0?'+':'')+fmt(v)} ₽</b>`;
+  const custHtml=rankRows(customers.slice(0,N), i=>i.count, i=>i.key,
+    i=>`${i.count} <small>${plural(i.count,'груз','груза','грузов')}</small> · ${moneyTag(i.margin)}`);
+  const carrHtml=rankRows(carriers.slice(0,N), i=>i.count, i=>i.key,
+    i=>`${i.count} <small>${plural(i.count,'рейс','рейса','рейсов')}</small> · ${moneyTag(i.margin)}`);
+
+  const byRev = routeSortMode==='rev';
+  const routesSorted=[...routes].sort((a,b)=> byRev? b.rev-a.rev : b.count-a.count).slice(0,N);
+  const routeHtml=rankRows(routesSorted, i=> byRev?i.rev:i.count, i=>routePlain(i.key),
+    i=> byRev
+      ? `${fmt(i.rev)} ₽ <small>· ${i.count} ${plural(i.count,'рейс','рейса','рейсов')}</small>`
+      : `${i.count} <small>${plural(i.count,'рейс','рейса','рейсов')} · ${fmt(i.rev)} ₽</small>`);
+
+  const byMargin=[...routes].sort((a,b)=>b.margin-a.margin).slice(0,10);
+  const marginHtml=byMargin.map((it,i)=>{
+    const pct=it.rev?it.margin/it.rev*100:null, rt=cleanRoute(it.key);
+    return `<tr>
+      <td class="rnum2">${i+1}</td>
+      <td class="route" title="${esc(rt.title)}">${rt.disp}</td>
+      <td class="num ${it.margin>=0?'pos':'neg'}">${(it.margin>=0?'+':'')+fmt(it.margin)}</td>
+      <td class="num">${pct==null?'—':pct.toFixed(1)+'%'}</td>
+      <td class="num">${it.count}</td></tr>`;
+  }).join('');
+
+  view.innerHTML=`<div class="agrid">
+    <div class="panel apanel">
+      <div class="aphead">Топ заказчиков <span class="apsub">по числу грузов</span></div>
+      <div class="alist">${custHtml||'<div class="empty">—</div>'}</div>
+    </div>
+    <div class="panel apanel">
+      <div class="aphead">Топ перевозчиков <span class="apsub">по числу перевозок</span></div>
+      <div class="alist">${carrHtml||'<div class="empty">—</div>'}</div>
+    </div>
+    <div class="panel apanel">
+      <div class="aphead">Лучшие плечи
+        <span class="seg small" id="routeSort">
+          <button data-rs="count" class="${byRev?'':'on'}">по количеству</button>
+          <button data-rs="rev" class="${byRev?'on':''}">по обороту</button>
+        </span>
+      </div>
+      <div class="alist">${routeHtml||'<div class="empty">—</div>'}</div>
+    </div>
+    <div class="panel apanel">
+      <div class="aphead">Топ-10 направлений <span class="apsub">по маржинальности</span></div>
+      <div class="scroll"><table class="atable">
+        <thead><tr><th></th><th>Направление</th><th class="num">Маржа ₽</th><th class="num">Маржа %</th><th class="num">Рейсов</th></tr></thead>
+        <tbody>${marginHtml||'<tr><td colspan="5" class="empty">—</td></tr>'}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+  $$('#routeSort button').forEach(b=>b.onclick=()=>{routeSortMode=b.dataset.rs; render();});
+}
+function setTab(t){
+  activeTab=t;
+  $$('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  $('#tableView').style.display     = t==='table'?'':'none';
+  $('#analyticsView').style.display = t==='analytics'?'':'none';
+  $('#cpView').style.display        = t==='cp'?'':'none';
+  $$('.table-only').forEach(e=>e.style.display = t==='table'?'':'none');
+  if(t!=='table') $('#entityWrap').style.display='none';
+  render();
+}
+
+/* ---------- counterparties (price quality) ---------- */
+let minDeals=3;
+function drawCounterparty(recs){
+  const view=$('#cpView');
+  const valid=recs.filter(r=>r.priceC!=null&&r.priceP!=null);
+  if(!valid.length){ view.innerHTML='<div class="panel"><div class="empty" style="padding:42px">Нет данных по текущим фильтрам</div></div>'; return; }
+
+  const agg=keyFn=>{
+    const m=new Map();
+    valid.forEach(r=>{
+      const k=keyFn(r); if(!k||k==='—') return;
+      let o=m.get(k); if(!o){o={key:k,count:0,sumC:0,sumP:0,margin:0}; m.set(k,o);}
+      o.count++; o.sumC+=r.priceC; o.sumP+=r.priceP; o.margin+=(r.margin||0);
+    });
+    return [...m.values()].filter(o=>o.count>=minDeals);
+  };
+
+  // customers — ranked by blended margin % (наценка, которую даёт заказчик)
+  const customers=agg(r=>r.customer).map(o=>({...o,
+    pct:o.sumC?o.margin/o.sumC*100:0, avgC:o.sumC/o.count, avgM:o.margin/o.count
+  })).sort((a,b)=>b.pct-a.pct);
+
+  // carriers — ranked by lowest cost share (дёшево возят)
+  const carriers=agg(r=>r.carrier).map(o=>({...o,
+    share:o.sumC?o.sumP/o.sumC*100:0, pct:o.sumC?o.margin/o.sumC*100:0, avgP:o.sumP/o.count
+  })).sort((a,b)=>a.share-b.share);
+
+  const N=15;
+  const maxCustPct=Math.max(1,...customers.map(o=>o.pct));
+  const custHtml=customers.slice(0,N).map((o,i)=>`<div class="rrow">
+    <span class="rnum">${i+1}</span>
+    <span class="rname" title="${esc(o.key)}">${esc(o.key)}</span>
+    <span class="rbar"><i style="width:${Math.max(0,o.pct)/maxCustPct*100}%"></i></span>
+    <span class="rval"><b class="${o.pct>=0?'pos':'neg'}">${o.pct.toFixed(1)}%</b> <small>· ${fmt(o.avgC)} ₽/рейс · ${o.count}</small></span>
+  </div>`).join('');
+
+  // longer bar = cheaper (more margin left). share lower is better.
+  const maxLeft=Math.max(1,...carriers.map(o=>100-o.share));
+  const carrHtml=carriers.slice(0,N).map((o,i)=>`<div class="rrow">
+    <span class="rnum">${i+1}</span>
+    <span class="rname" title="${esc(o.key)}">${esc(o.key)}</span>
+    <span class="rbar"><i style="width:${Math.max(0,100-o.share)/maxLeft*100}%;background:var(--pos)"></i></span>
+    <span class="rval"><b>${o.share.toFixed(0)}%</b> <small>от ставки · ${fmt(o.avgP)} ₽/рейс · ${o.count}</small></span>
+  </div>`).join('');
+
+  view.innerHTML=`
+    <div class="cpbar">
+      <label for="minDeals">Минимум сделок в рейтинге:</label>
+      <input type="number" id="minDeals" value="${minDeals}" min="1" step="1" style="width:72px">
+      <span class="hint">отсекает единичные удачные сделки, искажающие топ</span>
+    </div>
+    <div class="agrid">
+      <div class="panel apanel">
+        <div class="aphead">Заказчики с лучшей ценой <span class="apsub">по марже %</span></div>
+        <div class="alist">${custHtml||'<div class="empty">мало данных при текущем пороге</div>'}</div>
+      </div>
+      <div class="panel apanel">
+        <div class="aphead">Перевозчики, что возят дёшево <span class="apsub">доля в ставке заказчика</span></div>
+        <div class="alist">${carrHtml||'<div class="empty">мало данных при текущем пороге</div>'}</div>
+      </div>
+    </div>`;
+  $('#minDeals').onchange=e=>{minDeals=Math.max(1,+e.target.value||1); render();};
+}
+
+function drawStats(recs){
+  const withM=recs.filter(r=>r.margin!=null);
+  const total=withM.reduce((s,r)=>s+r.margin,0);
+  const avg=withM.length?total/withM.length:null;
+  const totalRev=withM.reduce((s,r)=>s+(r.priceC||0),0);
+  const blendedPct=totalRev?total/totalRev*100:null; // sum(margin)/sum(revenue) — outlier-safe
+  const totalVat=withM.reduce((s,r)=>s+(r.vatDue||0),0);
+  const best=withM.length?withM.reduce((m,r)=>r.margin>m.margin?r:m):null;
+  const _b=$('#marginMode .on'); const mm=_b?_b.dataset.mm:'gross';
+  const sfx = mm==='net'?' (чистая)':mm==='vat'?' (после НДС)':'';
+  $('#stats').innerHTML=[
+    ['Записей', recs.length, ''],
+    ['Суммарная маржа'+sfx, fmt(total), '₽'],
+    ['Средняя маржа'+sfx, avg==null?'—':fmt(avg), '₽'],
+    ['Маржа %'+(mm==='gross'?' (общая)':sfx), blendedPct==null?'—':blendedPct.toFixed(1), '%'],
+    ['НДС к уплате', fmt(totalVat), '₽'],
+    ['Лучшее плечо', best?cleanRoute(best.route).disp:'—', best?`+${fmt(best.margin)} ₽`:''],
+  ].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v">${v} <small>${s}</small></div></div>`).join('');
+}
+
+function drawTable(recs){
+  const maxM=Math.max(1,...recs.map(r=>Math.abs(r.margin||0)));
+  const colgroup='<colgroup>'+COLS.map(c=>`<col data-c="${c}" style="width:${colW[c]}px">`).join('')+'</colgroup>';
+  const head=`${colgroup}<thead><tr>
+    <th data-k="date">Дата<i class="resizer" data-c="date"></i></th>
+    <th data-k="customer">Заказчик<i class="resizer" data-c="customer"></i></th>
+    <th data-k="carrier">Перевозчик<i class="resizer" data-c="carrier"></i></th>
+    <th data-k="route">Направление<i class="resizer" data-c="route"></i></th>
+    <th data-k="priceC" class="num">Заказчику<i class="resizer" data-c="priceC"></i></th>
+    <th data-k="priceP" class="num">Перевозчику<i class="resizer" data-c="priceP"></i></th>
+    <th data-k="vat" class="num">НДС к/п<i class="resizer" data-c="vat"></i></th>
+    <th data-k="margin" class="num">Маржа<i class="resizer" data-c="margin"></i></th>
+    <th data-k="pct" class="num">%<i class="resizer" data-c="pct"></i></th>
+  </tr></thead>`;
+  const body = recs.length? recs.map(r=>{
+    const m=r.margin, w=m==null?0:Math.abs(m)/maxM*100, cls=m==null?'':m>=0?'pos':'neg';
+    const barc=m==null?'#CBD5E1':m>=0?'var(--pos)':'var(--neg)';
+    const rt=cleanRoute(r.route);
+    const brk = r.grossMargin==null ? '' :
+      `Гросс: ${fmt(r.grossMargin)}&#10;НДС к уплате: −${fmt(r.vatDue)}&#10;= После НДС: ${fmt(r.afterVat)}&#10;Налог на прибыль: −${fmt(r.incomeTax)}&#10;Менеджер: −${fmt(r.managerPay)}`
+      + (EXTRA?`&#10;Доп. расходы: −${fmt(EXTRA)}`:'')
+      + `&#10;= Чистая прибыль: ${fmt(r.netProfit)}`;
+    return `<tr>
+      <td class="c-date num" data-label="Дата">${fmtDate(r.date)}</td>
+      <td class="c-cust" data-label="Заказчик"><span class="tag">${esc(r.customer)}</span></td>
+      <td class="c-carr" data-label="Перевозчик"><span class="tag">${esc(r.carrier)}</span></td>
+      <td class="route" data-label="Направление" title="${esc(rt.title)}">${rt.disp}</td>
+      <td class="num" data-label="Заказчику">${fmt(r.priceC)}</td>
+      <td class="num" data-label="Перевозчику">${fmt(r.priceP)}</td>
+      <td class="num c-vat" data-label="НДС к/п" title="Заказчик: ${esc(r.formC||'—')}&#10;Поставщик: ${esc(r.formP||'—')}">${r.vatC}%<span style="color:var(--muted)"> / ${r.vatP}%</span></td>
+      <td class="num" data-label="Маржа" title="${brk}"><div class="mcell">
+        <div class="mbar"><span style="width:${w}%;background:${barc}"></span></div>
+        <span class="mval ${cls}">${m==null?'—':(m>=0?'+':'')+fmt(m)}</span>
+      </div></td>
+      <td class="num pct" data-label="Маржа %">${r.pct==null?'—':r.pct.toFixed(1)+'%'}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9" class="empty">Нет строк по этому фильтру</td></tr>`;
+  $('#table').innerHTML=head+'<tbody>'+body+'</tbody>';
+  // header sort
+  $$('#table th').forEach(th=>{
+    const k=th.dataset.k;
+    if(['date','margin','pct','priceC'].includes(k)){
+      const sv=$('#sort').value;
+      const active = sv.startsWith(k==='pct'?'marginpct':k);
+      if(active) th.classList.add('sorted');
+      th.innerHTML+=' <span class="ar">↕</span>';
+      th.onclick=()=>{
+        const map={date:'date-desc',margin:'margin-desc',pct:'marginpct-desc',priceC:'priceC-desc'};
+        $('#sort').value=map[k]; render();
+      };
+    }
+  });
+  if(userResized) applyWidths(); else autoFit();
+}
+
+/* ---------- column width control ---------- */
+const COLS=['date','customer','carrier','route','priceC','priceP','vat','margin','pct'];
+const DEFAULT_W={date:90,customer:175,carrier:200,route:280,priceC:104,priceP:110,vat:78,margin:175,pct:70};
+let colW={...DEFAULT_W}, userResized=false, dragCol=null;
+const sumW=()=>COLS.reduce((s,c)=>s+colW[c],0);
+function applyWidths(){
+  const t=$('#table'); if(!t) return;
+  t.querySelectorAll('col').forEach(c=>{if(colW[c.dataset.c]) c.style.width=colW[c.dataset.c]+'px';});
+  t.style.width=sumW()+'px';
+}
+function autoFit(){
+  if(userResized){applyWidths();return;}
+  colW={...DEFAULT_W};
+  const sc=$('.scroll'), avail=sc?sc.clientWidth:0, sum=sumW();
+  if(avail>sum+4){
+    const extra=avail-sum-4, fl={route:.45,carrier:.30,customer:.25};
+    for(const k in fl) colW[k]+=Math.round(extra*fl[k]);
+  }
+  applyWidths();
+}
+window.addEventListener('mousedown',e=>{
+  if(!e.target.classList.contains('resizer')) return;
+  e.preventDefault(); userResized=true;
+  const k=e.target.dataset.c;
+  dragCol={k,x:e.clientX,w:colW[k]}; e.target.classList.add('active');
+  document.body.style.cursor='col-resize';
+});
+window.addEventListener('mousemove',e=>{
+  if(!dragCol) return;
+  colW[dragCol.k]=Math.max(48, dragCol.w+(e.clientX-dragCol.x)); applyWidths();
+});
+window.addEventListener('mouseup',()=>{
+  if(!dragCol) return;
+  $$('.resizer.active').forEach(r=>r.classList.remove('active'));
+  dragCol=null; document.body.style.cursor='';
+});
+window.addEventListener('resize',()=>{ if(!userResized) autoFit(); });
+
+const esc=s=>String(s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;
+  if(n>10&&n<20)return c; if(n1>1&&n1<5)return b; if(n1===1)return a; return c;};
+
+/* ---------- events ---------- */
+$('#btnLoad').onclick=$('#btnLoad2').onclick=$('#addFileBtn').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{ if(e.target.files.length) readFiles(e.target.files); e.target.value=''; };
+$('#btnSample').onclick=demo;
+$('#lnkSample').onclick=e=>{e.preventDefault();demo();};
+$('#search').oninput=render;
+$('#sort').onchange=render;
+$('#entity').onchange=render;
+$('#statusFilter').onchange=render;
+$('#formCFilter').onchange=$('#formPFilter').onchange=render;
+$$('#marginMode button').forEach(b=>b.onclick=()=>{$$('#marginMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
+$('#dateFrom').onchange=$('#dateTo').onchange=render;
+$$('#mode button').forEach(b=>b.onclick=()=>{$$('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
+$$('#tabbar button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$('[data-toggle]').onclick=()=>$('#mapPanel').classList.toggle('closed');
+$('[data-toggle-calc]').onclick=()=>$('#calcPanel').classList.toggle('closed');
+function readParams(){
+  NP=+$('#pNP').value||0; MGR=+$('#pMGR').value||0; EXTRA=+$('#pEXTRA').value||0; STD_VAT=+$('#pVAT').value||0;
+  $('#calcStatus').textContent=`НП ${NP}% · менеджер ${MGR}%`+(EXTRA?` · +${fmt(EXTRA)}₽`:'');
+  render();
+}
+['pNP','pMGR','pEXTRA','pVAT'].forEach(id=>{$('#'+id).oninput=readParams;});
+$('#resetW').onclick=()=>{userResized=false; autoFit();};
+$('#table').addEventListener('click',e=>{if(e.target.classList.contains('resizer'))e.stopPropagation();},true);
+
+const dz=$('#drop');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length)readFiles(e.dataTransfer.files);});
+
+loadStore(); // восстановить ранее загруженные файлы (если есть и хранилище доступно)
+</script>
+</body>
+</html>
