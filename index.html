@@ -440,6 +440,27 @@ const guess=(headers,keys,neg=[])=>{ // shortest header that contains a keyword 
   return best;
 };
 const cleanCity=s=>String(s).split('(')[0].split(',')[0].trim();
+/* extract a region (субъект РФ) from a free-form address/city string */
+function regionOf(raw){
+  const s=String(raw||'').trim(); if(!s) return null;
+  const t=s.replace(/\s+/g,' ');
+  let m;
+  m=t.match(/([А-ЯЁ][а-яё-]+(?:\s[А-ЯЁ][а-яё-]+)?)\s*обл(?:асть)?\.?/i);
+  if(m) return cleanCity(m[1])+' область';
+  m=t.match(/([А-ЯЁ][а-яё-]+(?:\s[А-ЯЁ][а-яё-]+)?)\s*кра[йя]/i);
+  if(m) return cleanCity(m[1])+' край';
+  m=t.match(/респ(?:ублика)?\.?\s*([А-ЯЁ][а-яё-]+(?:\s[А-ЯЁ][а-яё-]+)?)/i);
+  if(m) return 'Респ. '+cleanCity(m[1]);
+  m=t.match(/([А-ЯЁ][а-яё-]+(?:\s[А-ЯЁ][а-яё-]+)?)\s*(?:автономный округ|АО\b)/i);
+  if(m) return cleanCity(m[1])+' АО';
+  if(/москва/i.test(t)&&!/московск/i.test(t)) return 'г. Москва';
+  if(/санкт-?петербург/i.test(t)) return 'г. Санкт-Петербург';
+  m=t.match(/([А-ЯЁ][а-яё-]+(?:\s[А-ЯЁ][а-яё-]+)?)\s*район/i);
+  if(m) return cleanCity(m[1])+' район';
+  m=t.match(/г\.?\s*([А-ЯЁ][а-яё-]+)/);
+  if(m) return 'г. '+cleanCity(m[1]);
+  return null;
+}
 function cleanRoute(t){
   const raw=String(t||'').trim();
   const parts=raw.split(/\s+-\s+/);
@@ -595,8 +616,10 @@ function record(r){
     netPct=netRev?netProfit/netRev*100:null;
   }
   const routeParts=String(routeText||'').split(/\s+-\s+/);
-  const origin = MAP.from&&r[MAP.from] ? cleanCity(r[MAP.from]) : (routeParts.length>1?cleanCity(routeParts[0]):null);
-  const destination = MAP.to&&r[MAP.to] ? cleanCity(r[MAP.to]) : (routeParts.length>1?cleanCity(routeParts[routeParts.length-1]):null);
+  const fromRaw = MAP.from&&r[MAP.from] ? r[MAP.from] : (routeParts.length>1?routeParts[0]:null);
+  const toRaw   = MAP.to&&r[MAP.to]   ? r[MAP.to]   : (routeParts.length>1?routeParts[routeParts.length-1]:null);
+  const origin = fromRaw ? (regionOf(fromRaw)||cleanCity(fromRaw)) : null;
+  const destination = toRaw ? (regionOf(toRaw)||cleanCity(toRaw)) : null;
   return {
     customer:r[MAP.customer]||'—', carrier:r[MAP.carrier]||'—',
     route:routeText, origin, destination, priceC:pc, priceP:pp, vatC, vatP, formC, formP,
