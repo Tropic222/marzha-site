@@ -185,7 +185,10 @@
 
     /* analytics */
     .agrid{grid-template-columns:1fr}
-    .rname{flex-basis:40%; max-width:40%}
+    .rrow{align-items:flex-start; flex-wrap:wrap}
+    .rname{flex:1 1 auto; max-width:none; overflow:visible; text-overflow:unset; white-space:normal; word-break:break-word}
+    .rbar{display:none}
+    .rval{padding-top:1px}
     .tabs button{flex:1; padding:10px 8px}
 
     /* table -> cards */
