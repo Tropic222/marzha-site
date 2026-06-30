@@ -576,11 +576,13 @@ function buildMapping(){
 function record(r){
   const routeText = MAP.route&&r[MAP.route] ? r[MAP.route]
     : (MAP.from||MAP.to) ? `${r[MAP.from]||'?'} → ${r[MAP.to]||'?'}` : '—';
-  const pc=num(r[MAP.priceC]), pp=num(r[MAP.priceP]);
-  const grossMargin = (pc!=null&&pp!=null) ? pc-pp : null;
-  const grossPct = (grossMargin!=null&&pc) ? grossMargin/pc*100 : null;
+  const pcRaw=num(r[MAP.priceC]), ppRaw=num(r[MAP.priceP]);
   const formC=r[MAP.payFormC]||'', formP=r[MAP.payFormP]||'';
   const vatC=vatRate(formC), vatP=vatRate(formP);
+  // ставка перевозчика без НДС — приводим к сопоставимой сумме с НДС (×1.22), иначе маржа завышается
+  const pc=pcRaw, pp=(ppRaw!=null&&vatP===0) ? ppRaw*1.22 : ppRaw;
+  const grossMargin = (pc!=null&&pp!=null) ? pc-pp : null;
+  const grossPct = (grossMargin!=null&&pc) ? grossMargin/pc*100 : null;
   let vatDue=null, afterVat=null, afterVatPct=null, incomeTax=null,
       netMargin=null, managerPay=null, netProfit=null, netPct=null;
   if(pc!=null&&pp!=null){
@@ -602,7 +604,7 @@ function record(r){
   const destination = toRaw ? (regionOf(toRaw)||cleanCity(toRaw)) : null;
   return {
     customer:r[MAP.customer]||'—', carrier:r[MAP.carrier]||'—',
-    route:routeText, origin, destination, priceC:pc, priceP:pp, vatC, vatP, formC, formP,
+    route:routeText, origin, destination, priceC:pc, priceP:ppRaw, vatC, vatP, formC, formP,
     grossMargin, grossPct, vatDue, afterVat, afterVatPct,
     incomeTax, netMargin, managerPay, netProfit, netPct,
     margin:grossMargin, pct:grossPct, // активные значения (по режиму)
