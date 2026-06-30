@@ -101,7 +101,9 @@
   td.num{font-family:var(--mono); text-align:right; letter-spacing:-.01em}
   .route{font-weight:600}
   .route .arr{color:var(--muted); margin:0 5px; font-weight:400}
-  .apanel .atable td.route{white-space:normal; min-width:200px; word-break:break-word}
+  .apanel .atable{table-layout:auto}
+  .apanel .atable td.route{white-space:nowrap; max-width:260px; overflow:hidden; text-overflow:ellipsis}
+  .apanel .atable th:first-child,.apanel .atable td.rnum2{width:28px}
   .tag{display:inline-block; max-width:230px; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom}
 
   /* margin cell + bar (signature element) */
@@ -828,11 +830,14 @@ function drawAnalytics(recs){
           <button data-rs="count" class="${byRev?'':'on'}">по количеству</button>
           <button data-rs="rev" class="${byRev?'on':''}">по обороту</button>
         </span>
+        <span class="seg small"><button id="collapseLegs">Свернуть</button></span>
       </div>
       <div class="alist">${routeHtml||'<div class="empty">—</div>'}</div>
     </div>
     <div class="panel apanel">
-      <div class="aphead">Топ-10 направлений <span class="apsub">по маржинальности</span></div>
+      <div class="aphead">Топ-10 направлений <span class="apsub">по маржинальности</span>
+        <span class="seg small"><button id="collapseTop">Свернуть</button></span>
+      </div>
       <div class="scroll"><table class="atable">
         <thead><tr><th></th><th>Направление</th><th class="num">Маржа ₽</th><th class="num">Маржа %</th><th class="num">Рейсов</th></tr></thead>
         <tbody>${marginHtml||'<tr><td colspan="5" class="empty">—</td></tr>'}</tbody>
@@ -846,6 +851,10 @@ function drawAnalytics(recs){
   [...view.querySelectorAll('[data-top]')].forEach(el=>{
     el.onclick=()=>{ const d=document.getElementById('topDetail'+el.dataset.top); if(d) d.style.display = d.style.display==='none'?'table-row':'none'; };
   });
+  const collapseLegs=$('#collapseLegs');
+  if(collapseLegs) collapseLegs.onclick=()=>{ [...view.querySelectorAll('[id^="legDetail"]')].forEach(d=>d.style.display='none'); };
+  const collapseTop=$('#collapseTop');
+  if(collapseTop) collapseTop.onclick=()=>{ [...view.querySelectorAll('[id^="topDetail"]')].forEach(d=>d.style.display='none'); };
 }
 function setTab(t){
   activeTab=t;
