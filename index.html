@@ -867,27 +867,28 @@ function regionAgg(recs, keyFn){
   const m=new Map();
   recs.forEach(r=>{
     const k=keyFn(r); if(!k||k==='—') return;
-    let o=m.get(k); if(!o){o={key:k,total:0,cities:new Map()}; m.set(k,o);}
-    [r.origin,r.destination].forEach(c=>{
-      if(!c) return;
-      o.total++;
-      o.cities.set(c,(o.cities.get(c)||0)+1);
-    });
+    let o=m.get(k); if(!o){o={key:k,total:0,from:new Map(),to:new Map()}; m.set(k,o);}
+    if(r.origin){ o.total++; o.from.set(r.origin,(o.from.get(r.origin)||0)+1); }
+    if(r.destination){ o.to.set(r.destination,(o.to.get(r.destination)||0)+1); }
   });
   return [...m.values()].map(o=>({
     key:o.key, total:o.total,
-    top:[...o.cities.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3)
-  })).filter(o=>o.top.length);
+    fromTop:[...o.from.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3),
+    toTop:[...o.to.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3)
+  })).filter(o=>o.fromTop.length||o.toTop.length);
 }
 function regionRows(items){
+  const tagList=top=>top.map(([city,c])=>
+    `<span class="tag" style="display:inline-block;max-width:none;margin-right:10px">${esc(city)} <small style="color:var(--muted)">${c}</small></span>`
+  ).join('')||'<span style="color:var(--muted)">—</span>';
   return items.map((o,i)=>{
-    const tops=o.top.map(([city,c])=>
-      `<span class="tag" style="display:inline-block;max-width:none;margin-right:10px">${esc(city)} <small style="color:var(--muted)">${c}</small></span>`
-    ).join('');
     return `<div class="rrow">
       <span class="rnum">${i+1}</span>
       <span class="rname" title="${esc(o.key)}">${esc(o.key)}</span>
-      <span class="rval" style="flex:1;text-align:left;white-space:normal">${tops}</span>
+      <span class="rval" style="flex:1;text-align:left;white-space:normal">
+        <div><small style="color:var(--muted)">Отправка:</small> ${tagList(o.fromTop)}</div>
+        <div style="margin-top:4px"><small style="color:var(--muted)">Назначение:</small> ${tagList(o.toTop)}</div>
+      </span>
     </div>`;
   }).join('');
 }
