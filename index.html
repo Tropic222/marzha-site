@@ -737,16 +737,20 @@ function rankRows(items, valFn, nameFn, subFn){
 /* detail rows shown when a route entry is clicked: дата, цена заказчику/перевозчику, маржа */
 function routeDetailHtml(list){
   if(!list||!list.length) return '<div class="empty" style="padding:8px 0">—</div>';
-  const rows=[...list].sort((a,b)=>(b.date||0)-(a.date||0)).map(r=>`<tr>
+  const rows=[...list].sort((a,b)=>(b.date||0)-(a.date||0)).map(r=>{
+    const pct=r.priceC?r.margin/r.priceC*100:null;
+    return `<tr>
     <td class="c-date">${fmtDate(r.date)}</td>
     <td>${esc(r.customer)}</td>
     <td>${esc(r.carrier)}</td>
     <td class="num">${fmt(r.priceC)}</td>
     <td class="num">${fmt(r.priceP)}</td>
     <td class="num ${(r.margin||0)>=0?'pos':'neg'}">${(r.margin>=0?'+':'')+fmt(r.margin)}</td>
-  </tr>`).join('');
+    <td class="num ${(r.margin||0)>=0?'pos':'neg'}">${pct==null?'—':pct.toFixed(1)+'%'}</td>
+  </tr>`;
+  }).join('');
   return `<table class="atable" style="margin:4px 0 8px"><thead><tr>
-    <th>Дата</th><th>Заказчик</th><th>Перевозчик</th><th class="num">Заказчику</th><th class="num">Перевозчику</th><th class="num">Маржа</th>
+    <th>Дата</th><th>Заказчик</th><th>Перевозчик</th><th class="num">Заказчику</th><th class="num">Перевозчику</th><th class="num">Маржа ₽</th><th class="num">Маржа %</th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 function drawAnalytics(recs){
