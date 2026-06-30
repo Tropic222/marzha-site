@@ -350,6 +350,10 @@
         <label>Заказчики</label>
         <input type="text" id="customerFilter" placeholder="через запятую: МНК ООО, АГРО-АВТО ООО…">
       </div>
+      <div class="field search">
+        <label>Исключить перевозчиков</label>
+        <input type="text" id="carrierExclude" placeholder="через запятую: ЛИДЕР ООО, ТРАНСМАГ ООО…">
+      </div>
       <div class="field" id="periodWrap" style="display:none">
         <label>Период</label>
         <div style="display:flex;gap:6px;align-items:center">
@@ -663,6 +667,10 @@ function render(){
   // customer filter (comma-separated list, matches any)
   const cfNames=$('#customerFilter').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
   if(cfNames.length) recs=recs.filter(r=>cfNames.some(n=>r.customer.toLowerCase().includes(n)));
+
+  // carrier exclude filter (comma-separated list, removes matching carriers)
+  const ceNames=$('#carrierExclude').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(ceNames.length) recs=recs.filter(r=>!ceNames.some(n=>r.carrier.toLowerCase().includes(n)));
 
   // period filter
   const hasDates=recs.some(r=>r.date!=null);
@@ -1082,6 +1090,7 @@ $('#btnLoad').onclick=$('#btnLoad2').onclick=$('#addFileBtn').onclick=()=>$('#fi
 $('#file').onchange=e=>{ if(e.target.files.length) readFiles(e.target.files); e.target.value=''; };
 $('#search').oninput=render;
 $('#customerFilter').oninput=render;
+$('#carrierExclude').oninput=render;
 $('#sort').onchange=render;
 $('#entity').onchange=render;
 $('#statusFilter').onchange=render;
