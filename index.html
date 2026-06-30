@@ -147,6 +147,8 @@
   .atable th.num{text-align:right}
   .atable td{padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
   .atable td.num{font-family:var(--mono); text-align:right}
+  .atable.rdetail-table td{white-space:normal; word-break:break-word}
+  .atable.rdetail-table{font-size:12px; width:100%}
   .atable tr:last-child td{border-bottom:none}
   .atable tbody tr:hover{background:var(--surface-2)}
   .rnum2{color:var(--muted); font-family:var(--mono); width:26px; text-align:center}
@@ -757,7 +759,7 @@ function routeDetailHtml(list){
     <td class="num ${(r.margin||0)>=0?'pos':'neg'}">${pct==null?'—':pct.toFixed(1)+'%'}</td>
   </tr>`;
   }).join('');
-  return `<table class="atable" style="margin:4px 0 8px"><thead><tr>
+  return `<table class="atable rdetail-table" style="margin:4px 0 8px"><thead><tr>
     <th>Дата</th><th>Заказчик</th><th>Перевозчик</th><th class="num">Заказчику</th><th class="num">Перевозчику</th><th class="num">Маржа ₽</th><th class="num">Маржа %</th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
