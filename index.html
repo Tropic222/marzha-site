@@ -734,6 +734,21 @@ function rankRows(items, valFn, nameFn, subFn){
     <span class="rval">${subFn(it)}</span>
   </div>`).join('');
 }
+/* detail rows shown when a route entry is clicked: дата, цена заказчику/перевозчику, маржа */
+function routeDetailHtml(list){
+  if(!list||!list.length) return '<div class="empty" style="padding:8px 0">—</div>';
+  const rows=[...list].sort((a,b)=>(b.date||0)-(a.date||0)).map(r=>`<tr>
+    <td class="c-date">${fmtDate(r.date)}</td>
+    <td>${esc(r.customer)}</td>
+    <td>${esc(r.carrier)}</td>
+    <td class="num">${fmt(r.priceC)}</td>
+    <td class="num">${fmt(r.priceP)}</td>
+    <td class="num ${(r.margin||0)>=0?'pos':'neg'}">${(r.margin>=0?'+':'')+fmt(r.margin)}</td>
+  </tr>`).join('');
+  return `<table class="atable" style="margin:4px 0 8px"><thead><tr>
+    <th>Дата</th><th>Заказчик</th><th>Перевозчик</th><th class="num">Заказчику</th><th class="num">Перевозчику</th><th class="num">Маржа</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
 function drawAnalytics(recs){
   const view=$('#analyticsView');
   if(!recs.length){ view.innerHTML='<div class="panel"><div class="empty" style="padding:42px">Нет данных по текущим фильтрам</div></div>'; return; }
@@ -748,22 +763,39 @@ function drawAnalytics(recs){
   const carrHtml=rankRows(carriers.slice(0,N), i=>i.count, i=>i.key,
     i=>`${i.count} <small>${plural(i.count,'рейс','рейса','рейсов')}</small> · ${moneyTag(i.margin)}`);
 
+  const recsByRoute=new Map();
+  recs.forEach(r=>{ if(!r.route||r.route==='—') return;
+    if(!recsByRoute.has(r.route)) recsByRoute.set(r.route,[]);
+    recsByRoute.get(r.route).push(r);
+  });
+
   const byRev = routeSortMode==='rev';
   const routesSorted=[...routes].sort((a,b)=> byRev? b.rev-a.rev : b.count-a.count).slice(0,N);
-  const routeHtml=rankRows(routesSorted, i=> byRev?i.rev:i.count, i=>routePlain(i.key),
-    i=> byRev
-      ? `${fmt(i.rev)} ₽ <small>· ${i.count} ${plural(i.count,'рейс','рейса','рейсов')}</small>`
-      : `${i.count} <small>${plural(i.count,'рейс','рейса','рейсов')} · ${fmt(i.rev)} ₽</small>`);
+  const legMax=Math.max(1,...routesSorted.map(i=>Math.abs((byRev?i.rev:i.count)||0)));
+  const routeHtml=routesSorted.map((it,i)=>{
+    const val=byRev?it.rev:it.count;
+    const sub=byRev
+      ? `${fmt(it.rev)} ₽ <small>· ${it.count} ${plural(it.count,'рейс','рейса','рейсов')}</small>`
+      : `${it.count} <small>${plural(it.count,'рейс','рейса','рейсов')} · ${fmt(it.rev)} ₽</small>`;
+    return `<div class="rrow" data-leg="${i}" style="cursor:pointer">
+      <span class="rnum">${i+1}</span>
+      <span class="rname" title="${esc(routePlain(it.key))}">${esc(routePlain(it.key))}</span>
+      <span class="rbar"><i style="width:${Math.abs(val||0)/legMax*100}%"></i></span>
+      <span class="rval">${sub}</span>
+    </div>
+    <div class="rdetail" id="legDetail${i}" style="display:none;padding:0 0 10px 28px">${routeDetailHtml(recsByRoute.get(it.key))}</div>`;
+  }).join('');
 
   const byMargin=[...routes].sort((a,b)=>b.margin-a.margin).slice(0,10);
   const marginHtml=byMargin.map((it,i)=>{
     const pct=it.rev?it.margin/it.rev*100:null, rt=cleanRoute(it.key);
-    return `<tr>
+    return `<tr data-top="${i}" style="cursor:pointer">
       <td class="rnum2">${i+1}</td>
       <td class="route" title="${esc(rt.title)}">${rt.disp}</td>
       <td class="num ${it.margin>=0?'pos':'neg'}">${(it.margin>=0?'+':'')+fmt(it.margin)}</td>
       <td class="num">${pct==null?'—':pct.toFixed(1)+'%'}</td>
-      <td class="num">${it.count}</td></tr>`;
+      <td class="num">${it.count}</td></tr>
+    <tr id="topDetail${i}" style="display:none"><td colspan="5">${routeDetailHtml(recsByRoute.get(it.key))}</td></tr>`;
   }).join('');
 
   view.innerHTML=`<div class="agrid">
@@ -793,6 +825,12 @@ function drawAnalytics(recs){
     </div>
   </div>`;
   $$('#routeSort button').forEach(b=>b.onclick=()=>{routeSortMode=b.dataset.rs; render();});
+  [...view.querySelectorAll('[data-leg]')].forEach(el=>{
+    el.onclick=()=>{ const d=document.getElementById('legDetail'+el.dataset.leg); if(d) d.style.display = d.style.display==='none'?'block':'none'; };
+  });
+  [...view.querySelectorAll('[data-top]')].forEach(el=>{
+    el.onclick=()=>{ const d=document.getElementById('topDetail'+el.dataset.top); if(d) d.style.display = d.style.display==='none'?'table-row':'none'; };
+  });
 }
 function setTab(t){
   activeTab=t;
