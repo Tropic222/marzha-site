@@ -381,6 +381,10 @@
           <option value="route-asc">Направление А→Я</option>
         </select>
       </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="seg"><button id="resetFilters">Сброс</button></div>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -414,6 +418,47 @@
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let HEADERS=[], ROWS=[], MAP={}, sortKey='margin', sortDir='desc';
+
+/* ---------- filter persistence (localStorage) ---------- */
+const FILTERS_KEY='marzhaFilters';
+let savedFilters={};
+try{ savedFilters=JSON.parse(localStorage.getItem(FILTERS_KEY)||'{}'); }catch(e){ savedFilters={}; }
+let pendingEntity=savedFilters.entity||'', pendingStatus=savedFilters.statusFilter||'',
+    pendingFormC=savedFilters.formCFilter||'', pendingFormP=savedFilters.formPFilter||'';
+function saveFilters(){
+  const f={
+    search:$('#search').value, customerFilter:$('#customerFilter').value, carrierExclude:$('#carrierExclude').value,
+    dateFrom:$('#dateFrom').value, dateTo:$('#dateTo').value, sort:$('#sort').value,
+    entity:$('#entity').value, statusFilter:$('#statusFilter').value,
+    formCFilter:$('#formCFilter').value, formPFilter:$('#formPFilter').value,
+    marginMode:($('#marginMode .on')||{}).dataset?.mm||'gross',
+    mode:($('#mode .on')||{}).dataset?.mode||'all'
+  };
+  try{ localStorage.setItem(FILTERS_KEY,JSON.stringify(f)); }catch(e){}
+}
+function applySavedStaticFilters(){
+  if(savedFilters.search) $('#search').value=savedFilters.search;
+  if(savedFilters.customerFilter) $('#customerFilter').value=savedFilters.customerFilter;
+  if(savedFilters.carrierExclude) $('#carrierExclude').value=savedFilters.carrierExclude;
+  if(savedFilters.dateFrom) $('#dateFrom').value=savedFilters.dateFrom;
+  if(savedFilters.dateTo) $('#dateTo').value=savedFilters.dateTo;
+  if(savedFilters.sort) $('#sort').value=savedFilters.sort;
+  if(savedFilters.marginMode) $$('#marginMode button').forEach(b=>b.classList.toggle('on',b.dataset.mm===savedFilters.marginMode));
+  if(savedFilters.mode) $$('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.mode===savedFilters.mode));
+}
+function resetFilters(){
+  try{ localStorage.removeItem(FILTERS_KEY); }catch(e){}
+  savedFilters={}; pendingEntity=''; pendingStatus=''; pendingFormC=''; pendingFormP='';
+  $('#search').value=''; $('#customerFilter').value=''; $('#carrierExclude').value='';
+  $('#dateFrom').value=''; $('#dateTo').value=''; $('#sort').value='date-desc';
+  $$('#marginMode button').forEach(b=>b.classList.toggle('on',b.dataset.mm==='gross'));
+  $$('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.mode==='all'));
+  if($('#entity')) $('#entity').value='';
+  if($('#statusFilter')) $('#statusFilter').value='__active';
+  if($('#formCFilter')) $('#formCFilter').value='';
+  if($('#formPFilter')) $('#formPFilter').value='';
+  render();
+}
 
 /* ---------- helpers ---------- */
 const num=v=>{
@@ -647,22 +692,29 @@ function render(){
     sf.innerHTML='<option value="__active">Без отменённых</option><option value="">Все статусы</option>'
       +statuses.map(s=>`<option>${esc(s)}</option>`).join('');
     sf.dataset.built='1';
+    if(pendingStatus && [...sf.options].some(o=>o.value===pendingStatus)) sf.value=pendingStatus;
+    pendingStatus='';
   }
   const sv=sf.value;
   if(sv==='__active') recs=recs.filter(r=>!/отмен/i.test(r.status));
   else if(sv) recs=recs.filter(r=>r.status===sv);
 
   // payment-form filters
-  const buildForm=(sel,key)=>{
+  const buildForm=(sel,key,pendingVal)=>{
     const el=$('#'+sel);
     if(el.dataset.built!=='1'){
       const opts=[...new Set(ROWS.map(r=>record(r)[key]))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru'));
       $('#'+sel+'Wrap').style.display=opts.length?'block':'none';
-      if(opts.length){el.innerHTML='<option value="">Любая</option>'+opts.map(o=>`<option>${esc(o)}</option>`).join(''); el.dataset.built='1';}
+      if(opts.length){
+        el.innerHTML='<option value="">Любая</option>'+opts.map(o=>`<option>${esc(o)}</option>`).join('');
+        el.dataset.built='1';
+        if(pendingVal && opts.includes(pendingVal)) el.value=pendingVal;
+      }
     }
     return el.value;
   };
-  const fcv=buildForm('formCFilter','formC'), fpv=buildForm('formPFilter','formP');
+  const fcv=buildForm('formCFilter','formC',pendingFormC); pendingFormC='';
+  const fpv=buildForm('formPFilter','formP',pendingFormP); pendingFormP='';
   if(fcv) recs=recs.filter(r=>r.formC===fcv);
   if(fpv) recs=recs.filter(r=>r.formP===fpv);
 
@@ -687,6 +739,8 @@ function render(){
   const mapped=Object.values(MAP).filter(Boolean).length;
   $('#mapStatus').textContent = mapped?`${mapped} ${plural(mapped,'колонка','колонки','колонок')}`:'не задано';
 
+  saveFilters();
+
   // ===== Analytics tab =====
   if(activeTab==='analytics'){ drawStats(recs); drawAnalytics(recs); return; }
   // ===== Counterparties tab =====
@@ -701,7 +755,9 @@ function render(){
     const key=mode==='customer'?'customer':'carrier';
     $('#entityLabel').textContent = mode==='customer'?'Заказчик':'Перевозчик';
     const ents=[...new Set(recs.map(r=>r[key]))].filter(x=>x&&x!=='—').sort((a,b)=>a.localeCompare(b,'ru'));
-    const cur=$('#entity').value;
+    let cur=$('#entity').value;
+    if(!cur && pendingEntity && ents.includes(pendingEntity)){ cur=pendingEntity; }
+    pendingEntity='';
     $('#entity').innerHTML='<option value="">Все</option>'+ents.map(e=>`<option ${cur===e?'selected':''}>${e}</option>`).join('');
     const pick=$('#entity').value;
     if(pick) recs=recs.filter(r=>r[key]===pick);
@@ -1113,6 +1169,8 @@ $$('#mode button').forEach(b=>b.onclick=()=>{$$('#mode button').forEach(x=>x.cla
 $$('#tabbar button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $('[data-toggle]').onclick=()=>$('#mapPanel').classList.toggle('closed');
 $('[data-toggle-calc]').onclick=()=>$('#calcPanel').classList.toggle('closed');
+$('#resetFilters').onclick=resetFilters;
+applySavedStaticFilters();
 function readParams(){
   NP=+$('#pNP').value||0; MGR=+$('#pMGR').value||0; EXTRA=+$('#pEXTRA').value||0; STD_VAT=+$('#pVAT').value||0;
   $('#calcStatus').textContent=`НП ${NP}% · менеджер ${MGR}%`+(EXTRA?` · +${fmt(EXTRA)}₽`:'');
