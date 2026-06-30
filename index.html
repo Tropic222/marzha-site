@@ -346,6 +346,10 @@
         <label>Поиск</label>
         <input type="text" id="search" placeholder="заказчик, перевозчик, город…">
       </div>
+      <div class="field search">
+        <label>Заказчики</label>
+        <input type="text" id="customerFilter" placeholder="через запятую: МНК ООО, АГРО-АВТО ООО…">
+      </div>
       <div class="field" id="periodWrap" style="display:none">
         <label>Период</label>
         <div style="display:flex;gap:6px;align-items:center">
@@ -655,6 +659,10 @@ function render(){
 
   // search
   if(q) recs=recs.filter(r=>(r.customer+' '+r.carrier+' '+r.route).toLowerCase().includes(q));
+
+  // customer filter (comma-separated list, matches any)
+  const cfNames=$('#customerFilter').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(cfNames.length) recs=recs.filter(r=>cfNames.some(n=>r.customer.toLowerCase().includes(n)));
 
   // period filter
   const hasDates=recs.some(r=>r.date!=null);
@@ -1031,6 +1039,7 @@ const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;
 $('#btnLoad').onclick=$('#btnLoad2').onclick=$('#addFileBtn').onclick=()=>$('#file').click();
 $('#file').onchange=e=>{ if(e.target.files.length) readFiles(e.target.files); e.target.value=''; };
 $('#search').oninput=render;
+$('#customerFilter').oninput=render;
 $('#sort').onchange=render;
 $('#entity').onchange=render;
 $('#statusFilter').onchange=render;
