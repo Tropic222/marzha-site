@@ -352,6 +352,14 @@
         <input type="text" id="search" placeholder="заказчик, перевозчик, город…">
       </div>
       <div class="field search">
+        <label>Отправка</label>
+        <input type="text" id="fromFilter" placeholder="город отправки…">
+      </div>
+      <div class="field search">
+        <label>Назначение</label>
+        <input type="text" id="toFilter" placeholder="город назначения…">
+      </div>
+      <div class="field search">
         <label>Заказчики</label>
         <input type="text" id="customerFilter" placeholder="через запятую: МНК ООО, АГРО-АВТО ООО…">
       </div>
@@ -428,6 +436,7 @@ let pendingEntity=savedFilters.entity||'', pendingStatus=savedFilters.statusFilt
 function saveFilters(){
   const f={
     search:$('#search').value, customerFilter:$('#customerFilter').value, carrierExclude:$('#carrierExclude').value,
+    fromFilter:$('#fromFilter').value, toFilter:$('#toFilter').value,
     dateFrom:$('#dateFrom').value, dateTo:$('#dateTo').value, sort:$('#sort').value,
     entity:$('#entity').value, statusFilter:$('#statusFilter').value,
     formCFilter:$('#formCFilter').value, formPFilter:$('#formPFilter').value,
@@ -440,6 +449,8 @@ function applySavedStaticFilters(){
   if(savedFilters.search) $('#search').value=savedFilters.search;
   if(savedFilters.customerFilter) $('#customerFilter').value=savedFilters.customerFilter;
   if(savedFilters.carrierExclude) $('#carrierExclude').value=savedFilters.carrierExclude;
+  if(savedFilters.fromFilter) $('#fromFilter').value=savedFilters.fromFilter;
+  if(savedFilters.toFilter) $('#toFilter').value=savedFilters.toFilter;
   if(savedFilters.dateFrom) $('#dateFrom').value=savedFilters.dateFrom;
   if(savedFilters.dateTo) $('#dateTo').value=savedFilters.dateTo;
   if(savedFilters.sort) $('#sort').value=savedFilters.sort;
@@ -450,6 +461,7 @@ function resetFilters(){
   try{ localStorage.removeItem(FILTERS_KEY); }catch(e){}
   savedFilters={}; pendingEntity=''; pendingStatus=''; pendingFormC=''; pendingFormP='';
   $('#search').value=''; $('#customerFilter').value=''; $('#carrierExclude').value='';
+  $('#fromFilter').value=''; $('#toFilter').value='';
   $('#dateFrom').value=''; $('#dateTo').value=''; $('#sort').value='date-desc';
   $$('#marginMode button').forEach(b=>b.classList.toggle('on',b.dataset.mm==='gross'));
   $$('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.mode==='all'));
@@ -728,6 +740,12 @@ function render(){
   // carrier exclude filter (comma-separated list, removes matching carriers)
   const ceNames=$('#carrierExclude').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
   if(ceNames.length) recs=recs.filter(r=>!ceNames.some(n=>r.carrier.toLowerCase().includes(n)));
+
+  // city from/to filters
+  const fromQ=$('#fromFilter').value.trim().toLowerCase();
+  const toQ=$('#toFilter').value.trim().toLowerCase();
+  if(fromQ) recs=recs.filter(r=>(r.origin||r.route||'').toLowerCase().includes(fromQ));
+  if(toQ)   recs=recs.filter(r=>(r.destination||r.route||'').toLowerCase().includes(toQ));
 
   // period filter
   const hasDates=recs.some(r=>r.date!=null);
@@ -1159,6 +1177,8 @@ $('#file').onchange=e=>{ if(e.target.files.length) readFiles(e.target.files); e.
 $('#search').oninput=render;
 $('#customerFilter').oninput=render;
 $('#carrierExclude').oninput=render;
+$('#fromFilter').oninput=render;
+$('#toFilter').oninput=render;
 $('#sort').onchange=render;
 $('#entity').onchange=render;
 $('#statusFilter').onchange=render;
