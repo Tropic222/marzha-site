@@ -180,13 +180,23 @@
     .controls{flex-direction:column; align-items:stretch; gap:10px}
     .controls .field,.controls .search{flex:1 1 auto; width:100%; min-width:0}
     .seg{width:100%}
-    .seg button{flex:1; padding:9px 6px; text-align:center}
-    #entity,#statusFilter{width:100%}
-    #dateFrom,#dateTo{flex:1; width:auto}
+    .seg button{flex:1; padding:11px 6px; font-size:14px; text-align:center; min-height:44px}
+    #entity,#statusFilter,#bodyTypeFilter,#formCFilter,#formPFilter,
+    #search,#customerFilter,#carrierExclude,#fromFilter,#toFilter{
+      width:100%; font-size:16px; min-height:44px}
+    #dateFrom,#dateTo{flex:1; width:auto; font-size:16px; min-height:44px}
+    input[type="text"],input[type="number"],select{font-size:16px}
+    #resetFilters{min-height:44px; width:100%; font-size:14px}
 
     .stats{grid-template-columns:1fr 1fr; gap:8px}
     .stat{padding:11px 12px}
     .stat .v{font-size:17px}
+
+    /* tabs — горизонтальный скролл вместо сжатия */
+    .tabs{overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap;
+      scrollbar-width:none; gap:0; padding-bottom:1px}
+    .tabs::-webkit-scrollbar{display:none}
+    .tabs button{flex:0 0 auto; padding:12px 16px; font-size:13px; white-space:nowrap; min-height:44px}
 
     /* analytics */
     .agrid{grid-template-columns:1fr}
@@ -194,7 +204,13 @@
     .rname{flex:1 1 auto; max-width:none; overflow:visible; text-overflow:unset; white-space:normal; word-break:break-word}
     .rbar{display:none}
     .rval{padding-top:1px}
-    .tabs button{flex:1; padding:10px 8px}
+    .aphead{flex-wrap:wrap; gap:6px}
+    .aphead .seg{width:auto}
+    .apanel .scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+    #empView .scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+    .cpbar{flex-direction:column; align-items:flex-start}
+    #mapPanel select{width:100%; font-size:16px; min-height:44px}
+    .panel-body{padding:4px 10px 12px}
 
     /* table -> cards */
     .tbar{display:none}
@@ -207,7 +223,8 @@
       border-radius:11px; margin-bottom:10px; padding:6px 14px 10px}
     tbody tr:hover{background:var(--surface)}
     td{display:flex; align-items:center; justify-content:space-between; gap:14px; width:auto!important;
-      padding:7px 0; white-space:normal; text-align:right; border:none; overflow:visible; text-overflow:clip}
+      padding:8px 0; white-space:normal; text-align:right; border:none; overflow:visible; text-overflow:clip;
+      min-height:36px}
     td::before{content:attr(data-label); color:var(--muted); font-size:11px; font-weight:600;
       text-transform:uppercase; letter-spacing:.04em; text-align:left; flex:0 0 auto}
     td.num{text-align:right; justify-content:space-between}
