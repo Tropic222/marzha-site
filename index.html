@@ -279,6 +279,7 @@
           <div class="field"><label>Форма оплаты заказчика</label><select data-role="payFormC"></select></div>
           <div class="field"><label>Форма оплаты поставщику</label><select data-role="payFormP"></select></div>
           <div class="field"><label>Тип кузова</label><select data-role="bodyType"></select></div>
+          <div class="field"><label>Сотрудник</label><select data-role="manager"></select></div>
         </div>
         <p style="color:var(--muted);font-size:12px;margin-top:12px">
           «Направление» можно задать одной колонкой, либо парой «Откуда»/«Куда». Маржа считается, когда заданы обе цены.
@@ -312,6 +313,7 @@
       <button data-tab="analytics">Аналитика</button>
       <button data-tab="cp">Контрагенты</button>
       <button data-tab="regions">Регионы</button>
+      <button data-tab="employees">Сотрудники</button>
     </div>
 
     <!-- Controls -->
@@ -419,6 +421,9 @@
 
     <!-- Regions view -->
     <div id="regionsView" style="display:none"></div>
+
+    <!-- Employees view -->
+    <div id="empView" style="display:none"></div>
   </div>
 
   <footer>Файл работает локально в браузере. Можно скачать и открывать офлайн (нужен интернет один раз — для модуля чтения Excel).</footer>
@@ -561,6 +566,7 @@ function autoMap(){
     payFormC:guess(HEADERS,['форма оплаты заказ','форма оплаты клиен']),
     payFormP:guess(HEADERS,['форма оплаты постав','форма оплаты перево','форма оплаты исполн']),
     bodyType:guess(HEADERS,['тип кузова','кузов','тип тс','тип авто','body']),
+    manager :guess(HEADERS,['менеджер','сотрудник','ответственн','логист','manager','employee'],NEG),
   };
   if(!MAP.priceC){MAP.priceC=guess(HEADERS,['цена','ставка','price','сумма','тариф'],['перево','долг']);}
 }
@@ -681,7 +687,8 @@ function record(r){
     incomeTax, netMargin, managerPay, netProfit, netPct,
     margin:grossMargin, pct:grossPct, // активные значения (по режиму)
     status:r[MAP.status]||'', date:parseDate(r[MAP.date]),
-    bodyType:r[MAP.bodyType]||''
+    bodyType:r[MAP.bodyType]||'',
+    manager:r[MAP.manager]||''
   };
 }
 
@@ -768,6 +775,8 @@ function render(){
   if(activeTab==='cp'){ drawStats(recs); drawCounterparty(recs); return; }
   // ===== Regions tab =====
   if(activeTab==='regions'){ drawStats(recs); drawRegions(recs); return; }
+  // ===== Employees tab =====
+  if(activeTab==='employees'){ drawStats(recs); drawEmployees(recs); return; }
 
   // ===== Table tab (group + sort are table-only) =====
   const mode=$('#mode .on').dataset.mode;
@@ -940,9 +949,81 @@ function setTab(t){
   $('#analyticsView').style.display = t==='analytics'?'':'none';
   $('#cpView').style.display        = t==='cp'?'':'none';
   $('#regionsView').style.display   = t==='regions'?'':'none';
+  $('#empView').style.display       = t==='employees'?'':'none';
   $$('.table-only').forEach(e=>e.style.display = t==='table'?'':'none');
   if(t!=='table') $('#entityWrap').style.display='none';
   render();
+}
+
+/* ---------- employees (margin by manager) ---------- */
+function drawEmployees(recs){
+  const view=$('#empView');
+  if(!MAP.manager){ view.innerHTML='<div class="panel"><div class="empty" style="padding:42px">Укажите колонку «Сотрудник» в настройке маппинга</div></div>'; return; }
+  const valid=recs.filter(r=>r.manager&&r.margin!=null);
+  if(!valid.length){ view.innerHTML='<div class="panel"><div class="empty" style="padding:42px">Нет данных по текущим фильтрам</div></div>'; return; }
+
+  const m=new Map();
+  valid.forEach(r=>{
+    const k=r.manager; if(!k||k==='—') return;
+    let o=m.get(k); if(!o){o={key:k,count:0,sumMargin:0,sumC:0,deals:[]}; m.set(k,o);}
+    o.count++; o.sumMargin+=r.margin; o.sumC+=r.priceC||0; o.deals.push(r);
+  });
+  const emps=[...m.values()].map(o=>({
+    ...o,
+    avgMargin:o.sumMargin/o.count,
+    pct:o.sumC?o.sumMargin/o.sumC*100:0
+  })).sort((a,b)=>b.sumMargin-a.sumMargin);
+
+  const maxM=Math.max(1,...emps.map(e=>Math.abs(e.sumMargin)));
+  const rows=emps.map((e,i)=>{
+    const cls=e.sumMargin>=0?'pos':'neg';
+    return `<div class="rrow" style="align-items:flex-start;flex-wrap:wrap;gap:6px">
+      <span class="rnum">${i+1}</span>
+      <span class="rname" title="${esc(e.key)}">${esc(e.key)}</span>
+      <span class="rbar"><i style="width:${Math.abs(e.sumMargin)/maxM*100}%;background:${e.sumMargin>=0?'var(--pos)':'var(--neg)'}"></i></span>
+      <span class="rval">
+        <b class="${cls}">${e.sumMargin>=0?'+':''}${fmt(e.sumMargin)} ₽</b>
+        <small style="color:var(--muted)"> · ${fmt(e.avgMargin)} ₽/рейс · ${e.pct.toFixed(1)}% · ${e.count} ${plural(e.count,'рейс','рейса','рейсов')}</small>
+      </span>
+    </div>`;
+  }).join('');
+
+  // summary table
+  const tableRows=emps.map((e,i)=>{
+    const cls=e.sumMargin>=0?'pos':'neg';
+    return `<tr>
+      <td class="rnum2">${i+1}</td>
+      <td>${esc(e.key)}</td>
+      <td class="num">${e.count}</td>
+      <td class="num ${cls}">${e.sumMargin>=0?'+':''}${fmt(e.sumMargin)}</td>
+      <td class="num">${fmt(e.avgMargin)}</td>
+      <td class="num ${cls}">${e.pct.toFixed(1)}%</td>
+      <td class="num">${fmt(e.sumC)}</td>
+    </tr>`;
+  }).join('');
+
+  view.innerHTML=`
+    <div class="agrid" style="grid-template-columns:1fr">
+      <div class="panel apanel">
+        <div class="aphead">Сотрудники по марже <span class="apsub">суммарная маржа за период</span></div>
+        <div class="alist">${rows}</div>
+      </div>
+      <div class="panel apanel">
+        <div class="aphead">Детальная таблица</div>
+        <div class="scroll"><table class="atable">
+          <thead><tr>
+            <th style="width:28px"></th>
+            <th>Сотрудник</th>
+            <th class="num">Рейсов</th>
+            <th class="num">Маржа ₽</th>
+            <th class="num">Сред. маржа</th>
+            <th class="num">Маржа %</th>
+            <th class="num">Оборот</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table></div>
+      </div>
+    </div>`;
 }
 
 /* ---------- counterparties (price quality) ---------- */
