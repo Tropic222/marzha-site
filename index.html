@@ -278,6 +278,7 @@
           <div class="field"><label>Дата</label><select data-role="date"></select></div>
           <div class="field"><label>Форма оплаты заказчика</label><select data-role="payFormC"></select></div>
           <div class="field"><label>Форма оплаты поставщику</label><select data-role="payFormP"></select></div>
+          <div class="field"><label>Тип кузова</label><select data-role="bodyType"></select></div>
         </div>
         <p style="color:var(--muted);font-size:12px;margin-top:12px">
           «Направление» можно задать одной колонкой, либо парой «Откуда»/«Куда». Маржа считается, когда заданы обе цены.
@@ -559,6 +560,7 @@ function autoMap(){
     date    :guess(HEADERS,['дата','date'],['оплат','план']),
     payFormC:guess(HEADERS,['форма оплаты заказ','форма оплаты клиен']),
     payFormP:guess(HEADERS,['форма оплаты постав','форма оплаты перево','форма оплаты исполн']),
+    bodyType:guess(HEADERS,['тип кузова','кузов','тип тс','тип авто','body']),
   };
   if(!MAP.priceC){MAP.priceC=guess(HEADERS,['цена','ставка','price','сумма','тариф'],['перево','долг']);}
 }
@@ -678,7 +680,8 @@ function record(r){
     grossMargin, grossPct, vatDue, afterVat, afterVatPct,
     incomeTax, netMargin, managerPay, netProfit, netPct,
     margin:grossMargin, pct:grossPct, // активные значения (по режиму)
-    status:r[MAP.status]||'', date:parseDate(r[MAP.date])
+    status:r[MAP.status]||'', date:parseDate(r[MAP.date]),
+    bodyType:r[MAP.bodyType]||''
   };
 }
 
@@ -1082,6 +1085,7 @@ function drawTable(recs){
     <th data-k="customer">Заказчик<i class="resizer" data-c="customer"></i></th>
     <th data-k="carrier">Перевозчик<i class="resizer" data-c="carrier"></i></th>
     <th data-k="route">Направление<i class="resizer" data-c="route"></i></th>
+    <th data-k="bodyType">Тип кузова<i class="resizer" data-c="bodyType"></i></th>
     <th data-k="priceC" class="num">Заказчику<i class="resizer" data-c="priceC"></i></th>
     <th data-k="priceP" class="num">Перевозчику<i class="resizer" data-c="priceP"></i></th>
     <th data-k="vat" class="num">НДС к/п<i class="resizer" data-c="vat"></i></th>
@@ -1101,6 +1105,7 @@ function drawTable(recs){
       <td class="c-cust" data-label="Заказчик"><span class="tag">${esc(r.customer)}</span></td>
       <td class="c-carr" data-label="Перевозчик"><span class="tag">${esc(r.carrier)}</span></td>
       <td class="route" data-label="Направление" title="${esc(rt.title)}">${rt.disp}</td>
+      <td data-label="Тип кузова">${esc(r.bodyType||'—')}</td>
       <td class="num" data-label="Заказчику">${fmt(r.priceC)}</td>
       <td class="num" data-label="Перевозчику">${fmt(r.priceP)}</td>
       <td class="num c-vat" data-label="НДС к/п" title="Заказчик: ${esc(r.formC||'—')}&#10;Поставщик: ${esc(r.formP||'—')}">${r.vatC}%<span style="color:var(--muted)"> / ${r.vatP}%</span></td>
@@ -1110,7 +1115,7 @@ function drawTable(recs){
       </div></td>
       <td class="num pct" data-label="Маржа %">${r.pct==null?'—':r.pct.toFixed(1)+'%'}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="9" class="empty">Нет строк по этому фильтру</td></tr>`;
+  }).join('') : `<tr><td colspan="10" class="empty">Нет строк по этому фильтру</td></tr>`;
   $('#table').innerHTML=head+'<tbody>'+body+'</tbody>';
   // header sort
   $$('#table th').forEach(th=>{
@@ -1130,8 +1135,8 @@ function drawTable(recs){
 }
 
 /* ---------- column width control ---------- */
-const COLS=['date','customer','carrier','route','priceC','priceP','vat','margin','pct'];
-const DEFAULT_W={date:90,customer:175,carrier:200,route:280,priceC:104,priceP:110,vat:78,margin:175,pct:70};
+const COLS=['date','customer','carrier','route','bodyType','priceC','priceP','vat','margin','pct'];
+const DEFAULT_W={date:90,customer:175,carrier:200,route:280,bodyType:120,priceC:104,priceP:110,vat:78,margin:175,pct:70};
 let colW={...DEFAULT_W}, userResized=false, dragCol=null;
 const sumW=()=>COLS.reduce((s,c)=>s+colW[c],0);
 function applyWidths(){
