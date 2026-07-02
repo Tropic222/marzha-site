@@ -181,7 +181,7 @@
     .controls .field,.controls .search{flex:1 1 auto; width:100%; min-width:0}
     .seg{width:100%}
     .seg button{flex:1; padding:11px 6px; font-size:14px; text-align:center; min-height:44px}
-    #entity,#statusFilter,#bodyTypeFilter,#formCFilter,#formPFilter,
+    #entity,#statusFilter,#bodyTypeFilter,#formCFilter,#formPFilter,#managerFilter,
     #search,#customerFilter,#carrierExclude,#fromFilter,#toFilter{
       width:100%; font-size:16px; min-height:44px}
     #dateFrom,#dateTo{flex:1; width:auto; font-size:16px; min-height:44px}
@@ -363,6 +363,10 @@
         <label>Тип кузова</label>
         <select id="bodyTypeFilter" style="max-width:230px"></select>
       </div>
+      <div class="field" id="managerFilterWrap" style="display:none">
+        <label>Сотрудник</label>
+        <select id="managerFilter" style="max-width:230px"></select>
+      </div>
       <div class="field" id="formCFilterWrap" style="display:none">
         <label>Оплата заказчика</label>
         <select id="formCFilter" style="max-width:230px"></select>
@@ -460,7 +464,7 @@ let savedFilters={};
 try{ savedFilters=JSON.parse(localStorage.getItem(FILTERS_KEY)||'{}'); }catch(e){ savedFilters={}; }
 let pendingEntity=savedFilters.entity||'', pendingStatus=savedFilters.statusFilter||'',
     pendingFormC=savedFilters.formCFilter||'', pendingFormP=savedFilters.formPFilter||'',
-    pendingBodyType=savedFilters.bodyTypeFilter||'';
+    pendingBodyType=savedFilters.bodyTypeFilter||'', pendingManager=savedFilters.managerFilter||'';
 function saveFilters(){
   const f={
     search:$('#search').value, customerFilter:$('#customerFilter').value, carrierExclude:$('#carrierExclude').value,
@@ -469,6 +473,7 @@ function saveFilters(){
     entity:$('#entity').value, statusFilter:$('#statusFilter').value,
     formCFilter:$('#formCFilter').value, formPFilter:$('#formPFilter').value,
     bodyTypeFilter:$('#bodyTypeFilter').value,
+    managerFilter:$('#managerFilter').value,
     marginMode:($('#marginMode .on')||{}).dataset?.mm||'gross',
     mode:($('#mode .on')||{}).dataset?.mode||'all'
   };
@@ -498,6 +503,7 @@ function resetFilters(){
   if($('#statusFilter')) $('#statusFilter').value='__active';
   if($('#formCFilter')) $('#formCFilter').value='';
   if($('#bodyTypeFilter')) $('#bodyTypeFilter').value='';
+  if($('#managerFilter')) $('#managerFilter').value='';
   if($('#formPFilter')) $('#formPFilter').value='';
   render();
 }
@@ -607,7 +613,7 @@ function rebuildData(){
   HEADERS=[...hset];
   if(!userMapped) autoMap();
   buildMapping();
-  ['statusFilter','formCFilter','formPFilter','bodyTypeFilter'].forEach(id=>{const e=$('#'+id); if(e){e.dataset.built=''; e.value='';}});
+  ['statusFilter','formCFilter','formPFilter','bodyTypeFilter','managerFilter'].forEach(id=>{const e=$('#'+id); if(e){e.dataset.built=''; e.value='';}});
   userResized=false;
   $('#drop').classList.add('hidden'); $('#app').classList.remove('hidden');
   render();
@@ -762,9 +768,11 @@ function render(){
   const fcv=buildForm('formCFilter','formC',pendingFormC); pendingFormC='';
   const fpv=buildForm('formPFilter','formP',pendingFormP); pendingFormP='';
   const btv=buildForm('bodyTypeFilter','bodyType',pendingBodyType); pendingBodyType='';
+  const mgv=buildForm('managerFilter','manager',pendingManager); pendingManager='';
   if(fcv) recs=recs.filter(r=>r.formC===fcv);
   if(fpv) recs=recs.filter(r=>r.formP===fpv);
   if(btv) recs=recs.filter(r=>r.bodyType===btv);
+  if(mgv) recs=recs.filter(r=>r.manager===mgv);
 
   // search
   if(q) recs=recs.filter(r=>(r.customer+' '+r.carrier+' '+r.route).toLowerCase().includes(q));
@@ -1193,6 +1201,7 @@ function drawTable(recs){
     <th data-k="carrier">Перевозчик<i class="resizer" data-c="carrier"></i></th>
     <th data-k="route">Направление<i class="resizer" data-c="route"></i></th>
     <th data-k="bodyType">Тип кузова<i class="resizer" data-c="bodyType"></i></th>
+    <th data-k="manager">Сотрудник<i class="resizer" data-c="manager"></i></th>
     <th data-k="priceC" class="num">Заказчику<i class="resizer" data-c="priceC"></i></th>
     <th data-k="priceP" class="num">Перевозчику<i class="resizer" data-c="priceP"></i></th>
     <th data-k="vat" class="num">НДС к/п<i class="resizer" data-c="vat"></i></th>
@@ -1213,6 +1222,7 @@ function drawTable(recs){
       <td class="c-carr" data-label="Перевозчик"><span class="tag">${esc(r.carrier)}</span></td>
       <td class="route" data-label="Направление" title="${esc(rt.title)}">${rt.disp}</td>
       <td data-label="Тип кузова">${esc(r.bodyType||'—')}</td>
+      <td data-label="Сотрудник">${esc(r.manager||'—')}</td>
       <td class="num" data-label="Заказчику">${fmt(r.priceC)}</td>
       <td class="num" data-label="Перевозчику">${fmt(r.priceP)}</td>
       <td class="num c-vat" data-label="НДС к/п" title="Заказчик: ${esc(r.formC||'—')}&#10;Поставщик: ${esc(r.formP||'—')}">${r.vatC}%<span style="color:var(--muted)"> / ${r.vatP}%</span></td>
@@ -1222,7 +1232,7 @@ function drawTable(recs){
       </div></td>
       <td class="num pct" data-label="Маржа %">${r.pct==null?'—':r.pct.toFixed(1)+'%'}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="10" class="empty">Нет строк по этому фильтру</td></tr>`;
+  }).join('') : `<tr><td colspan="11" class="empty">Нет строк по этому фильтру</td></tr>`;
   $('#table').innerHTML=head+'<tbody>'+body+'</tbody>';
   // header sort
   $$('#table th').forEach(th=>{
@@ -1242,8 +1252,8 @@ function drawTable(recs){
 }
 
 /* ---------- column width control ---------- */
-const COLS=['date','customer','carrier','route','bodyType','priceC','priceP','vat','margin','pct'];
-const DEFAULT_W={date:90,customer:175,carrier:200,route:280,bodyType:120,priceC:104,priceP:110,vat:78,margin:175,pct:70};
+const COLS=['date','customer','carrier','route','bodyType','manager','priceC','priceP','vat','margin','pct'];
+const DEFAULT_W={date:90,customer:175,carrier:200,route:280,bodyType:120,manager:140,priceC:104,priceP:110,vat:78,margin:175,pct:70};
 let colW={...DEFAULT_W}, userResized=false, dragCol=null;
 const sumW=()=>COLS.reduce((s,c)=>s+colW[c],0);
 function applyWidths(){
@@ -1294,7 +1304,7 @@ $('#toFilter').oninput=render;
 $('#sort').onchange=render;
 $('#entity').onchange=render;
 $('#statusFilter').onchange=render;
-$('#formCFilter').onchange=$('#formPFilter').onchange=$('#bodyTypeFilter').onchange=render;
+$('#formCFilter').onchange=$('#formPFilter').onchange=$('#bodyTypeFilter').onchange=$('#managerFilter').onchange=render;
 $$('#marginMode button').forEach(b=>b.onclick=()=>{$$('#marginMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
 $('#dateFrom').onchange=$('#dateTo').onchange=render;
 $$('#mode button').forEach(b=>b.onclick=()=>{$$('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
