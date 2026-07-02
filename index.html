@@ -366,9 +366,9 @@
         <label>Тип кузова</label>
         <select id="bodyTypeFilter" style="max-width:230px"></select>
       </div>
-      <div class="field" id="managerFilterWrap" style="display:none">
+      <div class="field search">
         <label>Сотрудник</label>
-        <select id="managerFilter" style="max-width:230px"></select>
+        <input type="text" id="managerFilter" placeholder="имя сотрудника…">
       </div>
       <div class="field" id="formCFilterWrap" style="display:none">
         <label>Оплата заказчика</label>
@@ -467,7 +467,7 @@ let savedFilters={};
 try{ savedFilters=JSON.parse(localStorage.getItem(FILTERS_KEY)||'{}'); }catch(e){ savedFilters={}; }
 let pendingEntity=savedFilters.entity||'', pendingStatus=savedFilters.statusFilter||'',
     pendingFormC=savedFilters.formCFilter||'', pendingFormP=savedFilters.formPFilter||'',
-    pendingBodyType=savedFilters.bodyTypeFilter||'', pendingManager=savedFilters.managerFilter||'';
+    pendingBodyType=savedFilters.bodyTypeFilter||'';
 function saveFilters(){
   const f={
     search:$('#search').value, customerFilter:$('#customerFilter').value, carrierExclude:$('#carrierExclude').value,
@@ -493,6 +493,7 @@ function applySavedStaticFilters(){
   if(savedFilters.sort) $('#sort').value=savedFilters.sort;
   if(savedFilters.marginMode) $$('#marginMode button').forEach(b=>b.classList.toggle('on',b.dataset.mm===savedFilters.marginMode));
   if(savedFilters.mode) $$('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.mode===savedFilters.mode));
+  if(savedFilters.managerFilter) $('#managerFilter').value=savedFilters.managerFilter;
 }
 function resetFilters(){
   try{ localStorage.removeItem(FILTERS_KEY); }catch(e){}
@@ -616,7 +617,8 @@ function rebuildData(){
   HEADERS=[...hset];
   if(!userMapped) autoMap();
   buildMapping();
-  ['statusFilter','formCFilter','formPFilter','bodyTypeFilter','managerFilter'].forEach(id=>{const e=$('#'+id); if(e){e.dataset.built=''; e.value='';}});
+  ['statusFilter','formCFilter','formPFilter','bodyTypeFilter'].forEach(id=>{const e=$('#'+id); if(e){e.dataset.built=''; e.value='';}});
+  if($('#managerFilter')) $('#managerFilter').value='';
   userResized=false;
   $('#drop').classList.add('hidden'); $('#app').classList.remove('hidden');
   render();
@@ -771,11 +773,11 @@ function render(){
   const fcv=buildForm('formCFilter','formC',pendingFormC); pendingFormC='';
   const fpv=buildForm('formPFilter','formP',pendingFormP); pendingFormP='';
   const btv=buildForm('bodyTypeFilter','bodyType',pendingBodyType); pendingBodyType='';
-  const mgv=buildForm('managerFilter','manager',pendingManager); pendingManager='';
   if(fcv) recs=recs.filter(r=>r.formC===fcv);
   if(fpv) recs=recs.filter(r=>r.formP===fpv);
   if(btv) recs=recs.filter(r=>r.bodyType===btv);
-  if(mgv) recs=recs.filter(r=>r.manager===mgv);
+  const mgq=$('#managerFilter').value.trim().toLowerCase();
+  if(mgq) recs=recs.filter(r=>(r.manager||'').toLowerCase().includes(mgq));
 
   // search
   if(q) recs=recs.filter(r=>(r.customer+' '+r.carrier+' '+r.route).toLowerCase().includes(q));
@@ -1307,7 +1309,8 @@ $('#toFilter').oninput=render;
 $('#sort').onchange=render;
 $('#entity').onchange=render;
 $('#statusFilter').onchange=render;
-$('#formCFilter').onchange=$('#formPFilter').onchange=$('#bodyTypeFilter').onchange=$('#managerFilter').onchange=render;
+$('#formCFilter').onchange=$('#formPFilter').onchange=$('#bodyTypeFilter').onchange=render;
+$('#managerFilter').oninput=render;
 $$('#marginMode button').forEach(b=>b.onclick=()=>{$$('#marginMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
 $('#dateFrom').onchange=$('#dateTo').onchange=render;
 $$('#mode button').forEach(b=>b.onclick=()=>{$$('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();});
